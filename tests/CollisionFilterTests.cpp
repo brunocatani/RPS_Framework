@@ -1,6 +1,8 @@
 #include "RPS/Runtime/CollisionFilter.h"
+#include "RPS/Runtime/CollisionPairPolicy.h"
 
 #include <array>
+#include <cstddef>
 #include <iostream>
 
 int main()
@@ -31,6 +33,56 @@ int main()
     if (!matrix.applyMask(RockBodyLayer, mask) || !matrix.matchesMask(RockBodyLayer, mask) ||
         matrix.setPair(MatrixLayerCount, 0, true) || matrix.applyMask(MatrixLayerCount, mask)) {
         std::cerr << "matrix mask contract failed\n";
+        return 1;
+    }
+
+    const std::array rules{
+        SuppressionRule{ layerEndpoint(RockHandLayer), layerEndpoint(RockBodyLayer) },
+        SuppressionRule{ groupEndpoint(17), groupEndpoint(23) },
+        SuppressionRule{ layerGroupEndpoint(RockWeaponLayer, 41), anyEndpoint() },
+        SuppressionRule{ layerEndpoint(RockBodyLayer), layerEndpoint(RockHandLayer) },
+        SuppressionRule{},
+    };
+    CollisionPairPolicy policy;
+    const auto published = policy.publish(rules, 77);
+    if (!published.enabled || published.publishedCount != 3 || published.duplicateCount != 1 ||
+        published.invalidCount != 1 || published.truncatedCount != 0 || published ||
+        published.generation != 77) {
+        std::cerr << "collision suppression publication failed\n";
+        return 1;
+    }
+
+    const auto layerSuppressed = policy.evaluate(true, FilterInfo{ RockBodyLayer }, FilterInfo{ RockHandLayer });
+    const auto groupSuppressed = policy.evaluate(
+        true,
+        FilterInfo{}.withLayer(3).withGroup(23),
+        FilterInfo{}.withLayer(5).withGroup(17));
+    const auto wildcardSuppressed = policy.evaluate(
+        true,
+        FilterInfo{}.withLayer(9).withGroup(2),
+        FilterInfo{}.withLayer(RockWeaponLayer).withGroup(41));
+    const auto untouched = policy.evaluate(true, FilterInfo{ 1 }, FilterInfo{ 2 });
+    const auto vanillaRejected = policy.evaluate(false, FilterInfo{ RockHandLayer }, FilterInfo{ RockBodyLayer });
+    if (!layerSuppressed.suppressed || layerSuppressed.collides || !layerSuppressed.snapshotStable ||
+        layerSuppressed.generation != 77 || !groupSuppressed.suppressed || !wildcardSuppressed.suppressed ||
+        untouched.suppressed || !untouched.collides || vanillaRejected.suppressed || vanillaRejected.collides) {
+        std::cerr << "collision suppression evaluation failed\n";
+        return 1;
+    }
+
+    policy.clear(78);
+    const auto cleared = policy.evaluate(true, FilterInfo{ RockHandLayer }, FilterInfo{ RockBodyLayer });
+    const auto stats = policy.stats();
+    if (cleared.suppressed || !cleared.collides || cleared.snapshotEnabled || cleared.generation != 78 ||
+        stats.comparisons != 6 || stats.suppressions != 3) {
+        std::cerr << "collision suppression clear/stats failed\n";
+        return 1;
+    }
+
+    const auto pattern = compareFilterInfoEntryPattern();
+    if (pattern.bytes.size() != 15 || !pattern.mask.empty() ||
+        pattern.bytes.front() != std::byte{ 0x8B } || pattern.bytes.back() != std::byte{ 0x7F }) {
+        std::cerr << "collision compare signature contract failed\n";
         return 1;
     }
 

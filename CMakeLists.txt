@@ -29,6 +29,7 @@ add_library(RPSRuntime STATIC
   src/BodyGravity.cpp
   src/CharacterController.cpp
   src/CollisionFilter.cpp
+  src/CollisionPairPolicy.cpp
   src/Constraint.cpp
   src/GeneratedBody.cpp
   src/GeneratorOutput.cpp
@@ -277,6 +278,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/CharacterControllerSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSCollisionPairPolicySourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/CollisionPairPolicySourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(
