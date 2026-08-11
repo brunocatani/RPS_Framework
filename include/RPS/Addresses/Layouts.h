@@ -123,6 +123,19 @@ namespace RPS::Addresses::Layouts
 
     namespace Constraint
     {
+        inline constexpr std::size_t CreationInfoSize = 0x18;
+        inline constexpr std::size_t BallAndSocketDataSize = 0x70;
+        inline constexpr std::size_t LimitedHingeDataSize = 0x130;
+        inline constexpr std::ptrdiff_t LimitedHinge_LimitEnabled = 0xFA;
+        inline constexpr std::ptrdiff_t LimitedHinge_MinimumAngle = 0xFC;
+        inline constexpr std::ptrdiff_t LimitedHinge_MaximumAngle = 0x100;
+        inline constexpr std::size_t PrismaticDataSize = 0x120;
+        inline constexpr std::ptrdiff_t Prismatic_LimitEnabled = 0x10A;
+        inline constexpr std::ptrdiff_t Prismatic_MinimumDistance = 0x10C;
+        inline constexpr std::ptrdiff_t Prismatic_MaximumDistance = 0x110;
+        inline constexpr std::size_t PositionMotorSize = 0x30;
+        inline constexpr std::uint32_t PositionMotorInitialReferenceWord = 0xFFFF0001;
+        inline constexpr std::uint8_t PositionMotorType = 1;
         inline constexpr std::ptrdiff_t Manager_Entries = 0x08;
         inline constexpr std::ptrdiff_t Manager_CapacityFlags = 0x10;
         inline constexpr std::ptrdiff_t Manager_ActiveCount = 0x20;

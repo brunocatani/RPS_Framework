@@ -112,6 +112,8 @@ RPS_SYMBOL(Constraint_LimitedHingeSetInWorldSpace, 0x19ACD90, Function, Constrai
 RPS_SYMBOL(Constraint_PrismaticCtor, 0x19B1350, Function, Constraint, Rock)
 RPS_SYMBOL(Constraint_PrismaticSetInWorldSpace, 0x19B1520, Function, Constraint, Rock)
 RPS_SYMBOL(Constraint_PositionMotorVtable, 0x2E95FE8, Vtable, Constraint, Rock)
+RPS_SYMBOL(Constraint_Create, 0x15469B0, Function, Constraint, Rock)
+RPS_SYMBOL(Constraint_Destroy, 0x1546B40, Function, Constraint, Rock)
 RPS_SYMBOL(Constraint_RagdollDataVtable, 0x2E18298, Vtable, Constraint, Rock)
 RPS_SYMBOL(Constraint_Update, 0x17B74B0, Function, Constraint, Scissors)
 
