@@ -16,6 +16,7 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] constexpr bool valid() const noexcept { return value != InvalidBodyId; }
         auto operator<=>(const BodyId&) const = default;
     };
+    static_assert(sizeof(BodyId) == sizeof(std::uint32_t));
 
     struct alignas(16) Vector4
     {

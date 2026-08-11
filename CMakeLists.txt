@@ -24,6 +24,7 @@ set_target_properties(RPSAddresses PROPERTIES EXPORT_NAME Addresses)
 add_library(RPSRuntime STATIC
   src/BodyAccess.cpp
   src/CollisionFilter.cpp
+  src/GeneratedBody.cpp
   src/GeneratorOutput.cpp
   src/HavokAllocator.cpp
   src/Memory.cpp
@@ -92,6 +93,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSShapeTests tests/ShapeTests.cpp)
   target_link_libraries(RPSShapeTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSGeneratedBodyTests tests/GeneratedBodyTests.cpp)
+  target_link_libraries(RPSGeneratedBodyTests PRIVATE RPS::Runtime)
+
   foreach(target IN ITEMS
       RPSAddressCatalogTests
       RPSGeneratorOutputTests
@@ -99,7 +103,8 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSRuntimeModuleTests
       RPSBodyAccessTests
       RPSPhysicsPolicyTests
-      RPSShapeTests)
+      RPSShapeTests
+      RPSGeneratedBodyTests)
     target_compile_features(${target} PRIVATE cxx_std_23)
     target_compile_options(${target} PRIVATE /utf-8 /permissive- /Zc:__cplusplus /W4)
     add_test(NAME ${target} COMMAND ${target})
@@ -113,6 +118,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/SourceBoundaryTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSGeneratedBodySourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/GeneratedBodySourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

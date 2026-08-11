@@ -1,5 +1,6 @@
 #include <RPS/Addresses/Catalog.h>
 #include <RPS/Runtime/CollisionFilter.h>
+#include <RPS/Runtime/GeneratedBody.h>
 #include <RPS/Runtime/PhysicsTypes.h>
 #include <RPS/Runtime/Shape.h>
 
@@ -9,5 +10,9 @@ int main()
     const RPS::Runtime::Collision::FilterInfo filter{ 43 };
     const RPS::Runtime::Physics::BodyId bodyId{ 1 };
     const RPS::Runtime::Physics::ChildTransform childTransform{};
-    return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() && childTransform.finite() ? 0 : 1;
+    const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
+    return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
+                   childTransform.finite() && retirement == 7 ?
+        0 :
+        1;
 }

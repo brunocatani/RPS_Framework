@@ -10,6 +10,10 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t ReferencedObject_ReferenceWord = 0x08;
         inline constexpr std::size_t ReferencedObject_DestroyVtableIndex = 3;
         inline constexpr std::ptrdiff_t HkThreadMemory_Allocator = 0x58;
+        inline constexpr std::ptrdiff_t Array_Data = 0x00;
+        inline constexpr std::ptrdiff_t Array_Size = 0x08;
+        inline constexpr std::ptrdiff_t Array_CapacityAndFlags = 0x0C;
+        inline constexpr std::uint32_t Array_CapacityMask = 0x3FFFFFFF;
         inline constexpr std::ptrdiff_t BhkWorld_HknpWorld = 0x60;
         inline constexpr std::ptrdiff_t HknpWorld_BodyArray = 0x20;
         inline constexpr std::ptrdiff_t HknpWorld_BodyHighWaterMark = 0x70;
@@ -71,6 +75,42 @@ namespace RPS::Addresses::Layouts
     {
         inline constexpr std::ptrdiff_t ReferencedObject_ReferenceWord = 0x08;
         inline constexpr std::size_t ReferencedObject_DestroyVtableIndex = 0;
+        inline constexpr std::uint32_t AllocatorReadyState = 2;
+        inline constexpr std::uint32_t CollisionObjectAllocatorContext = 0x41;
+        inline constexpr std::ptrdiff_t ExeTls_AllocatorContext = 0x9C0;
+
+        inline constexpr std::size_t PhysicsSystemDataSize = 0x78;
+        inline constexpr std::ptrdiff_t PhysicsSystemData_Materials = 0x10;
+        inline constexpr std::ptrdiff_t PhysicsSystemData_MotionCinfos = 0x30;
+        inline constexpr std::ptrdiff_t PhysicsSystemData_BodyCinfos = 0x40;
+        inline constexpr std::ptrdiff_t PhysicsSystemData_Shapes = 0x60;
+        inline constexpr std::size_t MotionCinfoSize = 0x70;
+        inline constexpr std::size_t BodyCinfoSize = 0x60;
+        inline constexpr std::size_t MaterialSize = 0x50;
+        inline constexpr std::size_t ShapeReferenceSize = 0x08;
+
+        inline constexpr std::ptrdiff_t BodyCinfo_Shape = 0x00;
+        inline constexpr std::ptrdiff_t BodyCinfo_ReservedBodyId = 0x08;
+        inline constexpr std::ptrdiff_t BodyCinfo_LocalMotionIndex = 0x0C;
+        inline constexpr std::ptrdiff_t BodyCinfo_QualityId = 0x10;
+        inline constexpr std::ptrdiff_t BodyCinfo_LocalMaterialIndex = 0x12;
+        inline constexpr std::ptrdiff_t BodyCinfo_CollisionFilterInfo = 0x14;
+        inline constexpr std::ptrdiff_t BodyCinfo_Name = 0x20;
+        inline constexpr std::ptrdiff_t BodyCinfo_UserData = 0x28;
+
+        inline constexpr std::size_t PhysicsSystemSize = 0x28;
+        inline constexpr std::ptrdiff_t PhysicsSystem_Instance = 0x18;
+        inline constexpr std::ptrdiff_t PhysicsSystemInstance_World = 0x18;
+        inline constexpr std::size_t CollisionObjectSize = 0x30;
+        inline constexpr std::ptrdiff_t CollisionObject_OwnerNode = 0x10;
+        inline constexpr std::ptrdiff_t CollisionObject_PhysicsSystem = 0x20;
+        inline constexpr std::size_t NiNodeSize = 0x180;
+        inline constexpr std::size_t NiNodeAlignment = 0x10;
+        inline constexpr std::ptrdiff_t NiAvObject_CollisionObject = 0x100;
+
+        inline constexpr std::uint16_t GeneratedLocalMaterialIndex = 0;
+        inline constexpr std::uint32_t GeneratedBodyRuntimeFlags = 0x08020000;
+        inline constexpr std::uint32_t RebuildBodyCollisionState = 0;
     }
 
     namespace Collision
