@@ -34,6 +34,7 @@ add_library(RPSRuntime STATIC
   src/HookPatch.cpp
   src/Impact.cpp
   src/Memory.cpp
+  src/MovementController.cpp
   src/NativeReference.cpp
   src/PhysicsApi.cpp
   src/PhysicsScale.cpp
@@ -102,6 +103,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSPhysicsPolicyTests tests/PhysicsPolicyTests.cpp)
   target_link_libraries(RPSPhysicsPolicyTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSMovementControllerTests tests/MovementControllerTests.cpp)
+  target_link_libraries(RPSMovementControllerTests PRIVATE RPS::Runtime)
+
   add_executable(RPSScenePhysicsTests tests/ScenePhysicsTests.cpp)
   target_link_libraries(RPSScenePhysicsTests PRIVATE RPS::Runtime)
 
@@ -137,6 +141,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSBodyAccessTests
       RPSBodyGravityTests
       RPSPhysicsPolicyTests
+      RPSMovementControllerTests
       RPSScenePhysicsTests
       RPSShapeTests
       RPSGeneratedBodyTests
@@ -231,6 +236,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/RecursivePhysicsSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSMovementControllerSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/MovementControllerSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

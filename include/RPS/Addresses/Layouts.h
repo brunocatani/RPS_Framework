@@ -245,4 +245,16 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t HitDataAlignment = 0x10;
         inline constexpr std::ptrdiff_t HitData_AggressorHandle = 0x40;
     }
+
+    namespace Movement
+    {
+        inline constexpr std::ptrdiff_t Actor_ControllerSmartPointer = 0x318;
+        inline constexpr std::ptrdiff_t Controller_MotionDrivenInterface = 0x128;
+        inline constexpr std::ptrdiff_t Controller_PlannerDirectInterface = 0x140;
+        inline constexpr std::ptrdiff_t Controller_Mode = 0x198;
+        inline constexpr std::ptrdiff_t Controller_PathingFlags = 0x1A0;
+        inline constexpr std::size_t Controller_PathingFlagCount = 8;
+        inline constexpr std::size_t Controller_PathingMasterFlagIndex = 5;
+        inline constexpr std::size_t Controller_MinimumReadableSize = 0x1A8;
+    }
 }

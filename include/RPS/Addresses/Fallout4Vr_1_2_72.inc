@@ -199,6 +199,13 @@ RPS_SYMBOL(Character_ActorApplyMovementDelta, 0x0E0D9D0, Function, Character, Sc
 RPS_SYMBOL(Character_ActorApplyMovementDeltaVtable, 0x2D7CBF0, Vtable, Character, Scissors)
 RPS_SYMBOL(Character_BuildYawPitchRollMatrix, 0x1C11C50, Function, Character, Scissors)
 RPS_SYMBOL(Character_SetWaterGravityFactor, 0x07C73F0, Function, Character, Scissors)
+RPS_SYMBOL(Character_MotionDrivenControlUpdate, 0x0FA5EE0, Function, Character, Scissors)
+RPS_SYMBOL(Character_SetPlannerTargetAngle, 0x0FA7A70, Function, Character, Scissors)
+RPS_SYMBOL(Character_ClearPlannerDirectControl, 0x0FA7AF0, Function, Character, Scissors)
+RPS_SYMBOL(Character_RequestPathFollowing, 0x0FA7C40, Function, Character, Scissors)
+RPS_SYMBOL(Character_SetAnimationDriven, 0x0FA7CA0, Function, Character, Scissors)
+RPS_SYMBOL(Character_SetAnimationDrivenAllowPlannerRotation, 0x0FA7EA0, Function, Character, Scissors)
+RPS_SYMBOL(Character_SetPlannerDirectControl, 0x0FA7FA0, Function, Character, Scissors)
 
 RPS_SYMBOL(Runtime_MainLoopHookSite, 0x0D8405E, HookSite, Runtime, Rock)
 RPS_SYMBOL(Runtime_LateCullingHookSite, 0x0D84EE4, HookSite, Rendering, RockAddon)

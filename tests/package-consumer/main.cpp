@@ -7,6 +7,7 @@
 #include <RPS/Runtime/GeneratedBody.h>
 #include <RPS/Runtime/HookPatch.h>
 #include <RPS/Runtime/Impact.h>
+#include <RPS/Runtime/MovementController.h>
 #include <RPS/Runtime/PhysicsTypes.h>
 #include <RPS/Runtime/Ragdoll.h>
 #include <RPS/Runtime/ScenePhysics.h>
@@ -28,6 +29,7 @@ int main()
     const RPS::Runtime::Physics::PhysicsImpactContact impactContact{};
     const RPS::Runtime::Physics::RecursiveMotionRequest recursiveMotion{};
     const RPS::Runtime::Physics::BodyGravitySnapshot gravity{};
+    const RPS::Runtime::Character::MovementControllerSnapshot movementController{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
     return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
                    childTransform.finite() && RPS::Runtime::Physics::validPositionMotorTuning(motor) &&
@@ -35,7 +37,7 @@ int main()
                    animationTransform.finite() && hookPatch.callsite == 0 && rayRequest.maxDistanceGame == 0.0f &&
                    !ragdollPointers.complete() && !impactContact.sourceBodyId.valid() &&
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
-                   retirement == 7 ?
+                   !movementController.complete() && retirement == 7 ?
         0 :
         1;
 }
