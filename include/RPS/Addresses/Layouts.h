@@ -335,6 +335,11 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t NiNode_AttachChildVtableIndex = 0x3D;
         inline constexpr std::size_t NiNode_DetachChildVtableIndex = 0x40;
         inline constexpr std::ptrdiff_t NiAVObject_Parent = 0x28;
+        inline constexpr std::ptrdiff_t NiAVObject_LocalTransform = 0x30;
+        inline constexpr std::ptrdiff_t NiAVObject_WorldTransform = 0x70;
+        inline constexpr std::ptrdiff_t NiAVObject_PreviousWorldTransform = 0xC0;
+        inline constexpr std::size_t NiAVObject_UpdateWorldDataVtableIndex = 0x37;
+        inline constexpr std::size_t NiUpdateDataSize = 0x20;
         inline constexpr std::size_t NiAVObject_MinimumReadableSize = 0x30;
         inline constexpr std::size_t NiNode_MinimumReadableSize = 0x180;
     }

@@ -42,8 +42,10 @@ namespace RPS::Runtime::Rendering
         PhysicsStepActive,
         PhysicsStepStateUnavailable,
         InvalidSettings,
+        InvalidTransform,
         InvalidLight,
         InvalidParent,
+        ParentChanged,
         FunctionUnavailable,
         ManagerUnavailable,
         FactoryRejected,
@@ -74,6 +76,9 @@ namespace RPS::Runtime::Rendering
         bool proxyReferenceReleased{};
         bool lightReferenceReleased{};
         bool parentReferenceReleased{};
+        bool transformWritten{};
+        Scene::Transform requestedWorld{};
+        Scene::Transform observedWorld{};
 
         [[nodiscard]] explicit operator bool() const noexcept
         {
@@ -105,6 +110,7 @@ namespace RPS::Runtime::Rendering
         [[nodiscard]] std::uint32_t ownerThreadId() const noexcept { return _ownerThreadId; }
 
         [[nodiscard]] PointLightCommandResult configure(const PointLightSettings& settings) noexcept;
+        [[nodiscard]] PointLightCommandResult placeWorld(const Scene::Transform& world) noexcept;
         [[nodiscard]] PointLightCommandResult attach(void* parent, bool firstAvailable = true) noexcept;
         [[nodiscard]] PointLightCommandResult detach() noexcept;
         [[nodiscard]] PointLightCommandResult reset() noexcept;

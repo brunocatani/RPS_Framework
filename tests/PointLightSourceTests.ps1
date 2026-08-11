@@ -42,8 +42,28 @@ foreach ($needle in @(
 }
 
 foreach ($needle in @(
+    'NiAVObject_LocalTransform = 0x30',
+    'NiAVObject_WorldTransform = 0x70',
+    'NiAVObject_PreviousWorldTransform = 0xC0',
+    'NiAVObject_UpdateWorldDataVtableIndex = 0x37',
+    'NiUpdateDataSize = 0x20'
+)) {
+    if (-not $layouts.Contains($needle)) {
+        throw "Point-light scene-placement layout lost '$needle'."
+    }
+}
+
+foreach ($needle in @(
     'currentThreadPhysicsStepState',
     'GetCurrentThreadId() != ownerThreadId',
+    'NiAVObject_UpdateWorldDataVtableIndex',
+    'worldToParentLocal(parentWorld, world)',
+    'NiAVObject_LocalTransform',
+    'NiAVObject_WorldTransform',
+    'NiAVObject_PreviousWorldTransform',
+    'restoreLocalTransform',
+    'previousWorldRestored',
+    'nearTransform(result.observedWorld, world)',
     'pointLightIdentityValid',
     'addBethesdaReference(light)',
     'addBethesdaReference(proxy)',

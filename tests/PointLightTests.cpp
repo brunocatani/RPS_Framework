@@ -46,11 +46,13 @@ int main()
     const auto created = api.create(PointLightSettings{});
     PointLight empty{};
     const auto configured = empty.configure(PointLightSettings{});
+    const auto placed = empty.placeWorld(Scene::Transform{});
     const auto attached = empty.attach(&settings);
     const auto detached = empty.detach();
     const auto reset = empty.reset();
     if (module || created.status != PointLightStatus::InvalidRuntime || created || created.light ||
         configured.status != PointLightStatus::InvalidRuntime || configured ||
+        placed.status != PointLightStatus::InvalidRuntime || placed ||
         attached.status != PointLightStatus::InvalidRuntime || attached ||
         detached.status != PointLightStatus::InvalidRuntime || detached ||
         reset.status != PointLightStatus::AlreadyDetached || !reset ||

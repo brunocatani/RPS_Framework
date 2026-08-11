@@ -9,6 +9,7 @@
 #define NOMINMAX
 #include <Windows.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace RPS::Runtime::Rendering
@@ -20,6 +21,22 @@ namespace RPS::Runtime::Rendering
         using CreatePointLightFunction = void* (*)();
         using RegisterPointLightFunction = void* (*)(void*, void*, bool);
         using UnregisterPointLightFunction = void (*)(void*, void*);
+        using UpdateWorldDataFunction = void (*)(void*, void*);
+
+        inline constexpr float MinimumTransformScale = 1.0e-5f;
+        inline constexpr float TransformComparisonTolerance = 1.0e-3f;
+
+        struct alignas(8) NativeUpdateData
+        {
+            float time{};
+            std::uint32_t timePadding{};
+            void* camera{};
+            std::uint32_t flags{};
+            std::uint32_t renderObjects{};
+            std::uint32_t fadeNodeDepth{};
+            std::uint32_t tailPadding{};
+        };
+        static_assert(sizeof(NativeUpdateData) == Addresses::Layouts::Scene::NiUpdateDataSize);
 
         struct PointLightFieldSnapshot
         {
@@ -270,6 +287,92 @@ namespace RPS::Runtime::Rendering
                     static_cast<std::uintptr_t>(Addresses::Layouts::Scene::NiAVObject_Parent)),
                 parent);
         }
+
+        [[nodiscard]] bool resolveObjectVirtual(
+            void* const object,
+            const std::size_t index,
+            std::uintptr_t& functionAddress) noexcept
+        {
+            std::uintptr_t vtable{};
+            return Memory::read(object, vtable) && vtable != 0 &&
+                   Memory::read(
+                       reinterpret_cast<const void*>(vtable + index * sizeof(void*)),
+                       functionAddress) &&
+                   functionAddress != 0 &&
+                   Memory::rangeHasAccess(
+                       reinterpret_cast<const void*>(functionAddress),
+                       1,
+                       Memory::Access::Execute);
+        }
+
+        [[nodiscard]] bool invokeUpdateWorldData(
+            const UpdateWorldDataFunction function,
+            void* const object,
+            NativeUpdateData& updateData) noexcept
+        {
+#if defined(_MSC_VER)
+            __try {
+                function(object, &updateData);
+                return true;
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                return false;
+            }
+#else
+            function(object, &updateData);
+            return true;
+#endif
+        }
+
+        [[nodiscard]] bool validSceneTransform(const Scene::Transform& transform) noexcept
+        {
+            return transform.finite() && transform.rotate.properRotation() &&
+                   std::abs(transform.scale) > MinimumTransformScale;
+        }
+
+        [[nodiscard]] bool nearFloat(const float first, const float second) noexcept
+        {
+            const auto scale = (std::max)({ 1.0f, std::abs(first), std::abs(second) });
+            return std::abs(first - second) <= TransformComparisonTolerance * scale;
+        }
+
+        [[nodiscard]] bool nearTransform(
+            const Scene::Transform& first,
+            const Scene::Transform& second) noexcept
+        {
+            for (std::size_t row = 0; row < 3; ++row) {
+                for (std::size_t column = 0; column < 3; ++column) {
+                    if (!nearFloat(first.rotate.entry[row][column], second.rotate.entry[row][column])) {
+                        return false;
+                    }
+                }
+            }
+            return nearFloat(first.translate.x, second.translate.x) &&
+                   nearFloat(first.translate.y, second.translate.y) &&
+                   nearFloat(first.translate.z, second.translate.z) && nearFloat(first.scale, second.scale);
+        }
+
+        [[nodiscard]] bool restoreLocalTransform(
+            const RuntimeModule& module,
+            void* const light,
+            const Scene::Transform& local,
+            const Scene::Transform& previousWorld,
+            const UpdateWorldDataFunction updateWorldData,
+            PointLightCommandResult& result) noexcept
+        {
+            result.rollbackAttempted = true;
+            NativeUpdateData updateData{};
+            const auto localRestored = Memory::write(
+                field(light, Addresses::Layouts::Scene::NiAVObject_LocalTransform),
+                local);
+            const auto worldUpdated = localRestored && invokeUpdateWorldData(updateWorldData, light, updateData);
+            const Scene::ObjectApi objectApi{ module, light };
+            const auto boundUpdated = worldUpdated && static_cast<bool>(objectApi.updateWorldBound());
+            const auto previousWorldRestored = boundUpdated && Memory::write(
+                field(light, Addresses::Layouts::Scene::NiAVObject_PreviousWorldTransform),
+                previousWorld);
+            result.rollbackSucceeded = localRestored && worldUpdated && boundUpdated && previousWorldRestored;
+            return result.rollbackSucceeded;
+        }
     }
 
     bool Color3::finiteNonNegative() const noexcept
@@ -301,8 +404,10 @@ namespace RPS::Runtime::Rendering
         case PointLightStatus::PhysicsStepActive: return "physics-step-active";
         case PointLightStatus::PhysicsStepStateUnavailable: return "physics-step-state-unavailable";
         case PointLightStatus::InvalidSettings: return "invalid-settings";
+        case PointLightStatus::InvalidTransform: return "invalid-transform";
         case PointLightStatus::InvalidLight: return "invalid-light";
         case PointLightStatus::InvalidParent: return "invalid-parent";
+        case PointLightStatus::ParentChanged: return "parent-changed";
         case PointLightStatus::FunctionUnavailable: return "function-unavailable";
         case PointLightStatus::ManagerUnavailable: return "manager-unavailable";
         case PointLightStatus::FactoryRejected: return "factory-rejected";
@@ -383,6 +488,161 @@ namespace RPS::Runtime::Rendering
                         result.rollbackAttempted && !result.rollbackSucceeded ?
                             PointLightStatus::PostconditionFailed :
                             PointLightStatus::NativeFault;
+        return result;
+    }
+
+    PointLightCommandResult PointLight::placeWorld(const Scene::Transform& world) noexcept
+    {
+        PointLightCommandResult result{};
+        result.lightAddress = reinterpret_cast<std::uintptr_t>(_light);
+        result.proxyAddress = reinterpret_cast<std::uintptr_t>(_proxy);
+        result.managerAddress = reinterpret_cast<std::uintptr_t>(_manager);
+        result.parentAddress = reinterpret_cast<std::uintptr_t>(_parent);
+        result.requestedWorld = world;
+        result.status = executionStatus(_module, _ownerThreadId);
+        if (result.status != PointLightStatus::Completed) {
+            return result;
+        }
+        if (!valid()) {
+            result.status = PointLightStatus::InvalidLight;
+            return result;
+        }
+        if (!validSceneTransform(world)) {
+            result.status = PointLightStatus::InvalidTransform;
+            return result;
+        }
+
+        std::uintptr_t observedVtable{};
+        std::uintptr_t observedParent{};
+        if (!pointLightIdentityValid(_module, _light, observedVtable) ||
+            !readObjectParent(_light, observedParent)) {
+            result.status = PointLightStatus::InvalidLight;
+            return result;
+        }
+        if (observedParent != reinterpret_cast<std::uintptr_t>(_parent)) {
+            result.status = PointLightStatus::ParentChanged;
+            return result;
+        }
+
+        Scene::Transform desiredLocal = world;
+        if (_parent) {
+            Scene::Transform parentWorld{};
+            if (!Memory::read(
+                    field(_parent, Addresses::Layouts::Scene::NiAVObject_WorldTransform),
+                    parentWorld) ||
+                !validSceneTransform(parentWorld)) {
+                result.status = PointLightStatus::InvalidParent;
+                return result;
+            }
+            const auto converted = Scene::worldToParentLocal(parentWorld, world);
+            if (!converted) {
+                result.status = PointLightStatus::InvalidTransform;
+                return result;
+            }
+            desiredLocal = converted.value;
+        }
+
+        Scene::Transform originalLocal{};
+        Scene::Transform originalPreviousWorld{};
+        if (!Memory::read(
+                field(_light, Addresses::Layouts::Scene::NiAVObject_LocalTransform),
+                originalLocal) ||
+            !Memory::read(
+                field(_light, Addresses::Layouts::Scene::NiAVObject_PreviousWorldTransform),
+                originalPreviousWorld) ||
+            !Memory::rangeHasAccess(
+                field(_light, Addresses::Layouts::Scene::NiAVObject_LocalTransform),
+                sizeof(Scene::Transform),
+                Memory::Access::Write) ||
+            !Memory::rangeHasAccess(
+                field(_light, Addresses::Layouts::Scene::NiAVObject_PreviousWorldTransform),
+                sizeof(Scene::Transform),
+                Memory::Access::Write)) {
+            result.status = PointLightStatus::InvalidLight;
+            return result;
+        }
+
+        if (!resolveObjectVirtual(
+                _light,
+                Addresses::Layouts::Scene::NiAVObject_UpdateWorldDataVtableIndex,
+                result.functionAddress)) {
+            result.status = PointLightStatus::FunctionUnavailable;
+            return result;
+        }
+        const auto updateWorldData = reinterpret_cast<UpdateWorldDataFunction>(result.functionAddress);
+        if (!Memory::write(
+                field(_light, Addresses::Layouts::Scene::NiAVObject_LocalTransform),
+                desiredLocal)) {
+            result.status = PointLightStatus::NativeFault;
+            return result;
+        }
+        result.transformWritten = true;
+        result.invoked = true;
+        NativeUpdateData updateData{};
+        if (!invokeUpdateWorldData(updateWorldData, _light, updateData)) {
+            result.status = PointLightStatus::NativeFault;
+            (void)restoreLocalTransform(
+                _module,
+                _light,
+                originalLocal,
+                originalPreviousWorld,
+                updateWorldData,
+                result);
+            return result;
+        }
+        const Scene::ObjectApi objectApi{ _module, _light };
+        if (!objectApi.updateWorldBound()) {
+            result.status = PointLightStatus::NativeFault;
+            (void)restoreLocalTransform(
+                _module,
+                _light,
+                originalLocal,
+                originalPreviousWorld,
+                updateWorldData,
+                result);
+            return result;
+        }
+
+        std::uintptr_t parentAfter{};
+        if (!readObjectParent(_light, parentAfter) || parentAfter != observedParent) {
+            result.status = PointLightStatus::ParentChanged;
+            (void)restoreLocalTransform(
+                _module,
+                _light,
+                originalLocal,
+                originalPreviousWorld,
+                updateWorldData,
+                result);
+            return result;
+        }
+        if (!Memory::read(
+                field(_light, Addresses::Layouts::Scene::NiAVObject_WorldTransform),
+                result.observedWorld) ||
+            !validSceneTransform(result.observedWorld) || !nearTransform(result.observedWorld, world)) {
+            result.status = PointLightStatus::PostconditionFailed;
+            (void)restoreLocalTransform(
+                _module,
+                _light,
+                originalLocal,
+                originalPreviousWorld,
+                updateWorldData,
+                result);
+            return result;
+        }
+        if (!Memory::write(
+                field(_light, Addresses::Layouts::Scene::NiAVObject_PreviousWorldTransform),
+                result.observedWorld)) {
+            result.status = PointLightStatus::NativeFault;
+            (void)restoreLocalTransform(
+                _module,
+                _light,
+                originalLocal,
+                originalPreviousWorld,
+                updateWorldData,
+                result);
+            return result;
+        }
+        result.status = PointLightStatus::Completed;
         return result;
     }
 
