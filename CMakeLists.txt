@@ -94,6 +94,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSRuntimeModuleTests tests/RuntimeModuleTests.cpp)
   target_link_libraries(RPSRuntimeModuleTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSNativeReferenceTests tests/NativeReferenceTests.cpp)
+  target_link_libraries(RPSNativeReferenceTests PRIVATE RPS::Runtime)
+
   add_executable(RPSBodyAccessTests tests/BodyAccessTests.cpp)
   target_link_libraries(RPSBodyAccessTests PRIVATE RPS::Runtime)
 
@@ -138,6 +141,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSGeneratorOutputTests
       RPSCollisionFilterTests
       RPSRuntimeModuleTests
+      RPSNativeReferenceTests
       RPSBodyAccessTests
       RPSBodyGravityTests
       RPSPhysicsPolicyTests
@@ -245,6 +249,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/MovementControllerSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSNativeReferenceSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeReferenceSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(
