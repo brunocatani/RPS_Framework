@@ -38,6 +38,7 @@ int main()
     const RPS::Runtime::Character::CharacterControllerSnapshot characterController{};
     const RPS::Runtime::Character::ActorStateSnapshot actorState{};
     RPS::Runtime::Collision::CollisionPairPolicy collisionPairPolicy{};
+    const RPS::Runtime::Physics::CollisionBodyResolveResult collisionBody{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
     return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
                    childTransform.finite() && RPS::Runtime::Physics::validPositionMotorTuning(motor) &&
@@ -46,7 +47,8 @@ int main()
                    !ragdollPointers.complete() && !impactContact.sourceBodyId.valid() &&
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
                    !movementController.complete() && !intrusiveReference && !characterController.rigidBodyComplete() &&
-                   !actorState.actorReadable && collisionPairPolicy.stats().comparisons == 0 && retirement == 7 ?
+                   !actorState.actorReadable && collisionPairPolicy.stats().comparisons == 0 && !collisionBody &&
+                   retirement == 7 ?
         0 :
         1;
 }

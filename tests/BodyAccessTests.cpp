@@ -4,8 +4,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <string_view>
 
 namespace
 {
@@ -24,6 +26,7 @@ int main()
     using namespace RPS;
     using namespace Runtime::Physics;
     namespace Havok = Addresses::Layouts::Havok;
+    namespace Bethesda = Addresses::Layouts::Bethesda;
 
     alignas(16) std::array<std::byte, 0x700> world{};
     alignas(16) std::array<std::byte, Havok::HknpBody_Stride * 4> bodies{};
@@ -88,6 +91,65 @@ int main()
     const auto staticSnapshot = snapshotBodyDuringSafeEpoch(world.data(), BodyId{ staticIndex });
     if (!staticSnapshot.valid || staticSnapshot.motion.valid) {
         std::cerr << "static body contract failed\n";
+        return 1;
+    }
+
+    alignas(16) std::array<std::byte, Bethesda::CollisionObjectSize> collisionObject{};
+    alignas(16) std::array<std::byte, Bethesda::PhysicsSystemSize> physicsSystem{};
+    alignas(16) std::array<std::byte, Bethesda::PhysicsSystemInstance_MinimumReadableSize> physicsInstance{};
+    std::array<std::uint32_t, 3> bodyIds{ 10, 11, 12 };
+    int sceneOwner{};
+    int otherSceneOwner{};
+    int otherWorld{};
+    write(collisionObject, Bethesda::CollisionObject_OwnerNode, reinterpret_cast<std::uintptr_t>(&sceneOwner));
+    write(
+        collisionObject,
+        Bethesda::CollisionObject_PhysicsSystem,
+        reinterpret_cast<std::uintptr_t>(physicsSystem.data()));
+    write(collisionObject, Bethesda::CollisionObject_BodyIndex, std::uint32_t{ 1 });
+    write(
+        physicsSystem,
+        Bethesda::PhysicsSystem_Instance,
+        reinterpret_cast<std::uintptr_t>(physicsInstance.data()));
+    write(
+        physicsInstance,
+        Bethesda::PhysicsSystemInstance_World,
+        reinterpret_cast<std::uintptr_t>(world.data()));
+    write(
+        physicsInstance,
+        Bethesda::PhysicsSystemInstance_BodyIds,
+        reinterpret_cast<std::uintptr_t>(bodyIds.data()));
+    write(physicsInstance, Bethesda::PhysicsSystemInstance_BodyCount, std::int32_t{ 3 });
+
+    const auto resolved = resolveCollisionObjectBody(collisionObject.data(), &sceneOwner, world.data());
+    if (!resolved || resolved.stage != CollisionBodyResolveStage::Verified || resolved.bodyId.value != 11 ||
+        resolved.sceneOwnerAddress != reinterpret_cast<std::uintptr_t>(&sceneOwner) || resolved.bodyIndex != 1 ||
+        resolved.bodyCount != 3 || toString(resolved.status) != std::string_view{ "resolved" }) {
+        std::cerr << "collision object body resolution failed\n";
+        return 1;
+    }
+
+    const auto wrongOwner = resolveCollisionObjectBody(collisionObject.data(), &otherSceneOwner, world.data());
+    const auto wrongWorld = resolveCollisionObjectBody(collisionObject.data(), &sceneOwner, &otherWorld);
+    if (wrongOwner.status != CollisionBodyResolveStatus::SceneOwnerMismatch ||
+        wrongWorld.status != CollisionBodyResolveStatus::WorldMismatch ||
+        resolveCollisionObjectBody(nullptr, &sceneOwner, world.data()).status !=
+            CollisionBodyResolveStatus::MissingCollisionObject) {
+        std::cerr << "collision object identity gates failed\n";
+        return 1;
+    }
+
+    write(collisionObject, Bethesda::CollisionObject_BodyIndex, std::uint32_t{ 3 });
+    if (resolveCollisionObjectBody(collisionObject.data(), &sceneOwner, world.data()).status !=
+        CollisionBodyResolveStatus::BodyIndexOutOfRange) {
+        std::cerr << "collision body index bounds failed\n";
+        return 1;
+    }
+    write(collisionObject, Bethesda::CollisionObject_BodyIndex, std::uint32_t{ 1 });
+    bodyIds[1] = InvalidBodyId;
+    if (resolveCollisionObjectBody(collisionObject.data(), &sceneOwner, world.data()).status !=
+        CollisionBodyResolveStatus::InvalidBodyId) {
+        std::cerr << "collision body ID validation failed\n";
         return 1;
     }
 

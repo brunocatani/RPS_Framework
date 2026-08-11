@@ -5,7 +5,6 @@
 
 #include <array>
 #include <cstddef>
-#include <cstring>
 #include <limits>
 
 namespace RPS::Runtime::Physics
@@ -76,6 +75,44 @@ namespace RPS::Runtime::Physics
         static_assert(offsetof(NativeMotion, angularVelocity) == Havok::HknpMotion_AngularVelocity);
         static_assert(offsetof(NativeMotion, previousStepLinearVelocity) == Havok::HknpMotion_PreviousLinearVelocity);
         static_assert(offsetof(NativeMotion, previousStepAngularVelocity) == Havok::HknpMotion_PreviousAngularVelocity);
+
+        struct NativeCollisionObject
+        {
+            std::array<std::byte, Bethesda::CollisionObject_OwnerNode> prefix;
+            std::uintptr_t ownerNode;
+            std::array<std::byte, Bethesda::CollisionObject_PhysicsSystem -
+                                      Bethesda::CollisionObject_OwnerNode - sizeof(std::uintptr_t)> ownerTail;
+            std::uintptr_t physicsSystem;
+            std::uint32_t bodyIndex;
+            std::uint32_t tail;
+        };
+        static_assert(sizeof(NativeCollisionObject) == Bethesda::CollisionObjectSize);
+        static_assert(offsetof(NativeCollisionObject, ownerNode) == Bethesda::CollisionObject_OwnerNode);
+        static_assert(offsetof(NativeCollisionObject, physicsSystem) == Bethesda::CollisionObject_PhysicsSystem);
+        static_assert(offsetof(NativeCollisionObject, bodyIndex) == Bethesda::CollisionObject_BodyIndex);
+
+        struct NativePhysicsSystem
+        {
+            std::array<std::byte, Bethesda::PhysicsSystem_Instance> prefix;
+            std::uintptr_t instance;
+            std::array<std::byte, Bethesda::PhysicsSystemSize -
+                                      Bethesda::PhysicsSystem_Instance - sizeof(std::uintptr_t)> tail;
+        };
+        static_assert(sizeof(NativePhysicsSystem) == Bethesda::PhysicsSystemSize);
+        static_assert(offsetof(NativePhysicsSystem, instance) == Bethesda::PhysicsSystem_Instance);
+
+        struct NativePhysicsInstance
+        {
+            std::array<std::byte, Bethesda::PhysicsSystemInstance_World> prefix;
+            std::uintptr_t world;
+            std::uintptr_t bodyIds;
+            std::int32_t bodyCount;
+            std::uint32_t tail;
+        };
+        static_assert(sizeof(NativePhysicsInstance) == Bethesda::PhysicsSystemInstance_MinimumReadableSize);
+        static_assert(offsetof(NativePhysicsInstance, world) == Bethesda::PhysicsSystemInstance_World);
+        static_assert(offsetof(NativePhysicsInstance, bodyIds) == Bethesda::PhysicsSystemInstance_BodyIds);
+        static_assert(offsetof(NativePhysicsInstance, bodyCount) == Bethesda::PhysicsSystemInstance_BodyCount);
 
         [[nodiscard]] bool indexedAddress(
             const std::uintptr_t base,
@@ -173,5 +210,204 @@ namespace RPS::Runtime::Physics
                      nativeMotion.previousStepAngularVelocity.finite(),
         };
         return result;
+    }
+
+    CollisionBodyResolveResult resolveCollisionObjectBody(
+        void* const collisionObject,
+        void* const expectedSceneOwner,
+        void* const expectedHknpWorld) noexcept
+    {
+        using namespace Addresses::Layouts;
+
+        CollisionBodyResolveResult result{};
+        result.collisionObjectAddress = reinterpret_cast<std::uintptr_t>(collisionObject);
+        if (!collisionObject) {
+            return result;
+        }
+        result.stage = CollisionBodyResolveStage::CollisionObject;
+        if (!Memory::rangeHasAccess(expectedSceneOwner, 1, Memory::Access::Read)) {
+            result.status = CollisionBodyResolveStatus::MissingSceneOwner;
+            return result;
+        }
+        if (!Memory::rangeHasAccess(expectedHknpWorld, 1, Memory::Access::Read)) {
+            result.status = CollisionBodyResolveStatus::MissingExpectedWorld;
+            return result;
+        }
+
+        NativeCollisionObject collision{};
+        if (!Memory::read(collisionObject, collision)) {
+            result.status = CollisionBodyResolveStatus::UnreadableCollisionObject;
+            return result;
+        }
+        result.sceneOwnerAddress = collision.ownerNode;
+        result.stage = CollisionBodyResolveStage::SceneOwner;
+        if (collision.ownerNode != reinterpret_cast<std::uintptr_t>(expectedSceneOwner)) {
+            result.status = CollisionBodyResolveStatus::SceneOwnerMismatch;
+            return result;
+        }
+
+        result.physicsSystemAddress = collision.physicsSystem;
+        if (result.physicsSystemAddress == 0) {
+            result.status = CollisionBodyResolveStatus::MissingPhysicsSystem;
+            return result;
+        }
+        result.stage = CollisionBodyResolveStage::PhysicsSystem;
+        NativePhysicsSystem system{};
+        if (!Memory::read(reinterpret_cast<const void*>(result.physicsSystemAddress), system)) {
+            result.status = CollisionBodyResolveStatus::UnreadablePhysicsSystem;
+            return result;
+        }
+
+        result.physicsInstanceAddress = system.instance;
+        if (result.physicsInstanceAddress == 0) {
+            result.status = CollisionBodyResolveStatus::MissingPhysicsInstance;
+            return result;
+        }
+        result.stage = CollisionBodyResolveStage::PhysicsInstance;
+        NativePhysicsInstance instance{};
+        if (!Memory::read(reinterpret_cast<const void*>(result.physicsInstanceAddress), instance)) {
+            result.status = CollisionBodyResolveStatus::UnreadablePhysicsInstance;
+            return result;
+        }
+
+        result.hknpWorldAddress = instance.world;
+        result.bodyIdsAddress = instance.bodyIds;
+        result.bodyIndex = collision.bodyIndex;
+        result.bodyCount = instance.bodyCount;
+        if (instance.world != reinterpret_cast<std::uintptr_t>(expectedHknpWorld)) {
+            result.status = CollisionBodyResolveStatus::WorldMismatch;
+            return result;
+        }
+        result.stage = CollisionBodyResolveStage::CurrentWorld;
+        if (instance.bodyCount <= 0 || instance.bodyCount > Bethesda::MaximumPhysicsSystemBodyCount) {
+            result.status = CollisionBodyResolveStatus::InvalidBodyCount;
+            return result;
+        }
+        if (instance.bodyIds == 0) {
+            result.status = CollisionBodyResolveStatus::MissingBodyIds;
+            return result;
+        }
+        result.stage = CollisionBodyResolveStage::BodyTable;
+        if (collision.bodyIndex >= static_cast<std::uint32_t>(instance.bodyCount)) {
+            result.status = CollisionBodyResolveStatus::BodyIndexOutOfRange;
+            return result;
+        }
+
+        const auto bodyTableBytes = static_cast<std::size_t>(instance.bodyCount) * sizeof(std::uint32_t);
+        if (!Memory::rangeHasAccess(
+                reinterpret_cast<const void*>(instance.bodyIds),
+                bodyTableBytes,
+                Memory::Access::Read)) {
+            result.status = CollisionBodyResolveStatus::UnreadableBodyTable;
+            return result;
+        }
+        result.stage = CollisionBodyResolveStage::BodyIndex;
+        std::uintptr_t bodyIdAddress{};
+        if (!indexedAddress(instance.bodyIds, collision.bodyIndex, sizeof(std::uint32_t), bodyIdAddress) ||
+            !Memory::read(reinterpret_cast<const void*>(bodyIdAddress), result.bodyId.value)) {
+            result.status = CollisionBodyResolveStatus::UnreadableBodyId;
+            return result;
+        }
+        if (!result.bodyId.valid() || result.bodyId.value > Havok::MaxReadableBodyIndex) {
+            result.bodyId = {};
+            result.status = CollisionBodyResolveStatus::InvalidBodyId;
+            return result;
+        }
+        result.stage = CollisionBodyResolveStage::BodyId;
+
+        NativeCollisionObject verifiedCollision{};
+        NativePhysicsSystem verifiedSystem{};
+        NativePhysicsInstance verifiedInstance{};
+        std::uint32_t verifiedBodyId{ InvalidBodyId };
+        if (!Memory::read(collisionObject, verifiedCollision) ||
+            !Memory::read(reinterpret_cast<const void*>(result.physicsSystemAddress), verifiedSystem) ||
+            !Memory::read(reinterpret_cast<const void*>(result.physicsInstanceAddress), verifiedInstance) ||
+            !Memory::read(reinterpret_cast<const void*>(bodyIdAddress), verifiedBodyId) ||
+            verifiedCollision.ownerNode != collision.ownerNode ||
+            verifiedCollision.physicsSystem != collision.physicsSystem ||
+            verifiedCollision.bodyIndex != collision.bodyIndex ||
+            verifiedSystem.instance != system.instance || verifiedInstance.world != instance.world ||
+            verifiedInstance.bodyIds != instance.bodyIds || verifiedInstance.bodyCount != instance.bodyCount ||
+            verifiedBodyId != result.bodyId.value) {
+            result.bodyId = {};
+            result.status = CollisionBodyResolveStatus::GenerationChanged;
+            return result;
+        }
+
+        result.stage = CollisionBodyResolveStage::Verified;
+        result.status = CollisionBodyResolveStatus::Resolved;
+        return result;
+    }
+
+    const char* toString(const CollisionBodyResolveStage stage) noexcept
+    {
+        switch (stage) {
+        case CollisionBodyResolveStage::None:
+            return "none";
+        case CollisionBodyResolveStage::CollisionObject:
+            return "collision-object";
+        case CollisionBodyResolveStage::SceneOwner:
+            return "scene-owner";
+        case CollisionBodyResolveStage::PhysicsSystem:
+            return "physics-system";
+        case CollisionBodyResolveStage::PhysicsInstance:
+            return "physics-instance";
+        case CollisionBodyResolveStage::CurrentWorld:
+            return "current-world";
+        case CollisionBodyResolveStage::BodyTable:
+            return "body-table";
+        case CollisionBodyResolveStage::BodyIndex:
+            return "body-index";
+        case CollisionBodyResolveStage::BodyId:
+            return "body-id";
+        case CollisionBodyResolveStage::Verified:
+            return "verified";
+        default:
+            return "unknown";
+        }
+    }
+
+    const char* toString(const CollisionBodyResolveStatus status) noexcept
+    {
+        switch (status) {
+        case CollisionBodyResolveStatus::Resolved:
+            return "resolved";
+        case CollisionBodyResolveStatus::MissingCollisionObject:
+            return "missing-collision-object";
+        case CollisionBodyResolveStatus::MissingSceneOwner:
+            return "missing-scene-owner";
+        case CollisionBodyResolveStatus::MissingExpectedWorld:
+            return "missing-expected-world";
+        case CollisionBodyResolveStatus::UnreadableCollisionObject:
+            return "unreadable-collision-object";
+        case CollisionBodyResolveStatus::SceneOwnerMismatch:
+            return "scene-owner-mismatch";
+        case CollisionBodyResolveStatus::MissingPhysicsSystem:
+            return "missing-physics-system";
+        case CollisionBodyResolveStatus::UnreadablePhysicsSystem:
+            return "unreadable-physics-system";
+        case CollisionBodyResolveStatus::MissingPhysicsInstance:
+            return "missing-physics-instance";
+        case CollisionBodyResolveStatus::UnreadablePhysicsInstance:
+            return "unreadable-physics-instance";
+        case CollisionBodyResolveStatus::WorldMismatch:
+            return "world-mismatch";
+        case CollisionBodyResolveStatus::InvalidBodyCount:
+            return "invalid-body-count";
+        case CollisionBodyResolveStatus::MissingBodyIds:
+            return "missing-body-ids";
+        case CollisionBodyResolveStatus::BodyIndexOutOfRange:
+            return "body-index-out-of-range";
+        case CollisionBodyResolveStatus::UnreadableBodyTable:
+            return "unreadable-body-table";
+        case CollisionBodyResolveStatus::UnreadableBodyId:
+            return "unreadable-body-id";
+        case CollisionBodyResolveStatus::InvalidBodyId:
+            return "invalid-body-id";
+        case CollisionBodyResolveStatus::GenerationChanged:
+            return "generation-changed";
+        default:
+            return "unknown";
+        }
     }
 }

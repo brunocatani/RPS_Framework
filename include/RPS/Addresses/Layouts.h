@@ -102,9 +102,14 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t PhysicsSystemSize = 0x28;
         inline constexpr std::ptrdiff_t PhysicsSystem_Instance = 0x18;
         inline constexpr std::ptrdiff_t PhysicsSystemInstance_World = 0x18;
+        inline constexpr std::ptrdiff_t PhysicsSystemInstance_BodyIds = 0x20;
+        inline constexpr std::ptrdiff_t PhysicsSystemInstance_BodyCount = 0x28;
+        inline constexpr std::size_t PhysicsSystemInstance_MinimumReadableSize = 0x30;
         inline constexpr std::size_t CollisionObjectSize = 0x30;
         inline constexpr std::ptrdiff_t CollisionObject_OwnerNode = 0x10;
         inline constexpr std::ptrdiff_t CollisionObject_PhysicsSystem = 0x20;
+        inline constexpr std::ptrdiff_t CollisionObject_BodyIndex = 0x28;
+        inline constexpr std::int32_t MaximumPhysicsSystemBodyCount = 4096;
         inline constexpr std::size_t NiNodeSize = 0x180;
         inline constexpr std::size_t NiNodeAlignment = 0x10;
         inline constexpr std::ptrdiff_t NiAvObject_CollisionObject = 0x100;

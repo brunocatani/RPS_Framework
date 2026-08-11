@@ -50,5 +50,77 @@ namespace RPS::Runtime::Physics
         MotionState motion{};
     };
 
+    enum class CollisionBodyResolveStage : std::uint8_t
+    {
+        None,
+        CollisionObject,
+        SceneOwner,
+        PhysicsSystem,
+        PhysicsInstance,
+        CurrentWorld,
+        BodyTable,
+        BodyIndex,
+        BodyId,
+        Verified,
+    };
+
+    enum class CollisionBodyResolveStatus : std::uint8_t
+    {
+        Resolved,
+        MissingCollisionObject,
+        MissingSceneOwner,
+        MissingExpectedWorld,
+        UnreadableCollisionObject,
+        SceneOwnerMismatch,
+        MissingPhysicsSystem,
+        UnreadablePhysicsSystem,
+        MissingPhysicsInstance,
+        UnreadablePhysicsInstance,
+        WorldMismatch,
+        InvalidBodyCount,
+        MissingBodyIds,
+        BodyIndexOutOfRange,
+        UnreadableBodyTable,
+        UnreadableBodyId,
+        InvalidBodyId,
+        GenerationChanged,
+    };
+
+    struct CollisionBodyResolveResult
+    {
+        CollisionBodyResolveStatus status{ CollisionBodyResolveStatus::MissingCollisionObject };
+        CollisionBodyResolveStage stage{ CollisionBodyResolveStage::None };
+        BodyId bodyId{};
+        std::uintptr_t collisionObjectAddress{};
+        std::uintptr_t sceneOwnerAddress{};
+        std::uintptr_t physicsSystemAddress{};
+        std::uintptr_t physicsInstanceAddress{};
+        std::uintptr_t hknpWorldAddress{};
+        std::uintptr_t bodyIdsAddress{};
+        std::uint32_t bodyIndex{};
+        std::int32_t bodyCount{};
+
+        [[nodiscard]] bool resolved() const noexcept
+        {
+            return status == CollisionBodyResolveStatus::Resolved && bodyId.valid();
+        }
+        [[nodiscard]] explicit operator bool() const noexcept { return resolved(); }
+    };
+
     [[nodiscard]] BodySnapshot snapshotBodyDuringSafeEpoch(void* hknpWorld, BodyId bodyId) noexcept;
+
+    /**
+     * Resolves one borrowed bhkNPCollisionObject to its current hknp body ID.
+     * The expected scene owner and world are mandatory identity witnesses.
+     * Every native record is copied completely and the pointer chain is read a
+     * second time before success. The caller must keep the scene object,
+     * collision object, and physics system stable for this synchronous call.
+     */
+    [[nodiscard]] CollisionBodyResolveResult resolveCollisionObjectBody(
+        void* collisionObject,
+        void* expectedSceneOwner,
+        void* expectedHknpWorld) noexcept;
+
+    [[nodiscard]] const char* toString(CollisionBodyResolveStage stage) noexcept;
+    [[nodiscard]] const char* toString(CollisionBodyResolveStatus status) noexcept;
 }

@@ -281,6 +281,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(
+    NAME RPSBodyAccessSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/BodyAccessSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
     NAME RPSCollisionPairPolicySourceTests
     COMMAND
       "${RPS_PWSH_EXECUTABLE}"
