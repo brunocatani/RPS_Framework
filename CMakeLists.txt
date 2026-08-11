@@ -22,6 +22,7 @@ add_library(RPS::Addresses ALIAS RPSAddresses)
 set_target_properties(RPSAddresses PROPERTIES EXPORT_NAME Addresses)
 
 add_library(RPSRuntime STATIC
+  src/ActorState.cpp
   src/AnimationMotor.cpp
   src/AnimationPose.cpp
   src/BodyAccess.cpp
@@ -107,6 +108,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSCharacterControllerTests tests/CharacterControllerTests.cpp)
   target_link_libraries(RPSCharacterControllerTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSActorStateTests tests/ActorStateTests.cpp)
+  target_link_libraries(RPSActorStateTests PRIVATE RPS::Runtime)
+
   add_executable(RPSPhysicsPolicyTests tests/PhysicsPolicyTests.cpp)
   target_link_libraries(RPSPhysicsPolicyTests PRIVATE RPS::Runtime)
 
@@ -149,6 +153,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSBodyAccessTests
       RPSBodyGravityTests
       RPSCharacterControllerTests
+      RPSActorStateTests
       RPSPhysicsPolicyTests
       RPSMovementControllerTests
       RPSScenePhysicsTests
@@ -272,6 +277,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/CharacterControllerSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSActorStateSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/ActorStateSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

@@ -271,4 +271,34 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t RigidBody_MinimumReadableSize = 0xA9;
         inline constexpr std::uint32_t MaximumManagerControllerScan = 8192;
     }
+
+    namespace ActorState
+    {
+        inline constexpr std::ptrdiff_t Actor_StateSubobject = 0x128;
+        inline constexpr std::ptrdiff_t Actor_LifeFlags = 0x130;
+        inline constexpr std::ptrdiff_t Actor_KnockFlags = 0x134;
+        inline constexpr std::ptrdiff_t Actor_AIProcess = 0x300;
+        inline constexpr std::ptrdiff_t Actor_RagdollMovementFlags = 0x43C;
+        inline constexpr std::size_t Actor_MinimumReadableSize = 0x440;
+
+        inline constexpr std::ptrdiff_t ActorState_SetKnockStateVtableSlot = 0x120;
+        inline constexpr std::ptrdiff_t ActorState_GetKnockStateVtableSlot = 0x128;
+        inline constexpr std::uint32_t KnockCodeShift = 19;
+        inline constexpr std::uint32_t KnockCodeMask = 0x3;
+        inline constexpr std::uint32_t MaximumKnockState = 8;
+        inline constexpr std::uint32_t NormalKnockState = 0;
+        inline constexpr std::uint32_t LifeStateShift = 18;
+        inline constexpr std::uint32_t LifeStateMask = 0xF;
+        inline constexpr std::uint32_t RagdollMovementFlagMask = 0x100;
+
+        inline constexpr std::ptrdiff_t AIProcess_KnockData = 0x8;
+        inline constexpr std::ptrdiff_t AIProcess_HighData = 0x10;
+        inline constexpr std::size_t AIProcess_MinimumReadableSize = 0x18;
+        inline constexpr std::ptrdiff_t KnockData_CurrentHandle = 0x3B0;
+        inline constexpr std::ptrdiff_t KnockData_RagdollFlag = 0x4BF;
+        inline constexpr std::size_t KnockData_MinimumReadableSize = 0x4C0;
+        inline constexpr std::ptrdiff_t HighProcess_FullRagdollFlagA = 0x58E;
+        inline constexpr std::ptrdiff_t HighProcess_FullRagdollFlagB = 0x58F;
+        inline constexpr std::size_t HighProcess_MinimumReadableSize = 0x590;
+    }
 }
