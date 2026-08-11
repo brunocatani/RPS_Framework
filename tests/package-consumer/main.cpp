@@ -14,6 +14,7 @@
 #include <RPS/Runtime/NativeReference.h>
 #include <RPS/Runtime/PhysicsTypes.h>
 #include <RPS/Runtime/Ragdoll.h>
+#include <RPS/Runtime/Scene.h>
 #include <RPS/Runtime/ScenePhysics.h>
 #include <RPS/Runtime/Shape.h>
 #include <RPS/Runtime/WorldQuery.h>
@@ -39,6 +40,7 @@ int main()
     const RPS::Runtime::Character::ActorStateSnapshot actorState{};
     RPS::Runtime::Collision::CollisionPairPolicy collisionPairPolicy{};
     const RPS::Runtime::Physics::CollisionBodyResolveResult collisionBody{};
+    const RPS::Runtime::Scene::Transform sceneTransform{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
     return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
                    childTransform.finite() && RPS::Runtime::Physics::validPositionMotorTuning(motor) &&
@@ -48,7 +50,7 @@ int main()
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
                    !movementController.complete() && !intrusiveReference && !characterController.rigidBodyComplete() &&
                    !actorState.actorReadable && collisionPairPolicy.stats().comparisons == 0 && !collisionBody &&
-                   retirement == 7 ?
+                   sceneTransform.finite() && retirement == 7 ?
         0 :
         1;
 }

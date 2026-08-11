@@ -44,6 +44,7 @@ add_library(RPSRuntime STATIC
   src/PhysicsTiming.cpp
   src/Ragdoll.cpp
   src/RuntimeModule.cpp
+  src/Scene.cpp
   src/ScenePhysics.cpp
   src/Shape.cpp
   src/WorldAccess.cpp
@@ -121,6 +122,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSScenePhysicsTests tests/ScenePhysicsTests.cpp)
   target_link_libraries(RPSScenePhysicsTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSSceneTests tests/SceneTests.cpp)
+  target_link_libraries(RPSSceneTests PRIVATE RPS::Runtime)
+
   add_executable(RPSShapeTests tests/ShapeTests.cpp)
   target_link_libraries(RPSShapeTests PRIVATE RPS::Runtime)
 
@@ -158,6 +162,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSPhysicsPolicyTests
       RPSMovementControllerTests
       RPSScenePhysicsTests
+      RPSSceneTests
       RPSShapeTests
       RPSGeneratedBodyTests
       RPSConstraintTests
@@ -278,6 +283,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/CharacterControllerSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSSceneSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/SceneSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

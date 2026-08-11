@@ -306,4 +306,12 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t HighProcess_FullRagdollFlagB = 0x58F;
         inline constexpr std::size_t HighProcess_MinimumReadableSize = 0x590;
     }
+
+    namespace Scene
+    {
+        inline constexpr std::size_t NiAVObject_SetMaterialNeedsUpdateVtableIndex = 0x2E;
+        inline constexpr std::size_t NiAVObject_SetAppCulledVtableIndex = 0x30;
+        inline constexpr std::size_t NiAVObject_UpdateWorldBoundVtableIndex = 0x36;
+        inline constexpr std::size_t NiAVObject_MinimumReadableSize = sizeof(std::uintptr_t);
+    }
 }
