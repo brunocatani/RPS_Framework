@@ -15,6 +15,7 @@
 #include <RPS/Runtime/MovementController.h>
 #include <RPS/Runtime/NativeReference.h>
 #include <RPS/Runtime/PhysicsTypes.h>
+#include <RPS/Runtime/PointLight.h>
 #include <RPS/Runtime/Ragdoll.h>
 #include <RPS/Runtime/RootPose.h>
 #include <RPS/Runtime/Scene.h>
@@ -46,6 +47,8 @@ int main()
     const RPS::Runtime::Physics::CollisionBodyResolveResult collisionBody{};
     const RPS::Runtime::Scene::Transform sceneTransform{};
     const RPS::Runtime::Scene::HierarchyCommandResult hierarchyCommand{};
+    const RPS::Runtime::Rendering::PointLightSettings pointLightSettings{};
+    const RPS::Runtime::Rendering::PointLight pointLight{};
     const auto rootTransform = RPS::Runtime::Animation::identityHkQsTransform();
     const RPS::Runtime::Audio::NativeSoundHandle soundHandle{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
@@ -57,8 +60,9 @@ int main()
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
                    !movementController.complete() && !intrusiveReference && !characterController.rigidBodyComplete() &&
                    !actorState.actorReadable && !pathRequest && collisionPairPolicy.stats().comparisons == 0 && !collisionBody &&
-                   sceneTransform.finite() && !hierarchyCommand && rootTransform.finite() && !soundHandle.active() &&
-                   retirement == 7 ?
+                   sceneTransform.finite() && !hierarchyCommand &&
+                   RPS::Runtime::Rendering::validPointLightSettings(pointLightSettings) && !pointLight &&
+                   rootTransform.finite() && !soundHandle.active() && retirement == 7 ?
         0 :
         1;
 }

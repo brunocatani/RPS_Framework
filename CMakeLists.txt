@@ -44,6 +44,7 @@ add_library(RPSRuntime STATIC
   src/PhysicsApi.cpp
   src/PhysicsScale.cpp
   src/PhysicsTiming.cpp
+  src/PointLight.cpp
   src/Ragdoll.cpp
   src/RootPose.cpp
   src/RuntimeModule.cpp
@@ -125,6 +126,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSPhysicsPolicyTests tests/PhysicsPolicyTests.cpp)
   target_link_libraries(RPSPhysicsPolicyTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSPointLightTests tests/PointLightTests.cpp)
+  target_link_libraries(RPSPointLightTests PRIVATE RPS::Runtime)
+
   add_executable(RPSMovementControllerTests tests/MovementControllerTests.cpp)
   target_link_libraries(RPSMovementControllerTests PRIVATE RPS::Runtime)
 
@@ -174,6 +178,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSActorPathingTests
       RPSAudioTests
       RPSPhysicsPolicyTests
+      RPSPointLightTests
       RPSMovementControllerTests
       RPSScenePhysicsTests
       RPSSceneTests
@@ -334,6 +339,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/CollisionPairPolicySourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSPointLightSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/PointLightSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

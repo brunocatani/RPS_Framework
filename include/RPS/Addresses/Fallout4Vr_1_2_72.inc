@@ -110,6 +110,7 @@ RPS_SYMBOL(Scene_PointLightCreate, 0x1C27DB0, Function, Scene, RockAddon)
 RPS_SYMBOL(Scene_PointLightRegister, 0x27E9C30, Function, Scene, RockAddon)
 RPS_SYMBOL(Scene_PointLightUnregister, 0x27EA6F0, Function, Scene, RockAddon)
 RPS_SYMBOL(Scene_PointLightManager, 0x6879520, Data, Scene, RockAddon)
+RPS_SYMBOL(Scene_PointLightVtable, 0x2E58BC8, Vtable, Scene, RockAddon)
 RPS_SYMBOL(Scene_TriShapeFactory, 0x29389E0, Function, Scene, RockAddon)
 RPS_SYMBOL(Scene_EffectPropertyFactory, 0x2939800, Function, Scene, RockAddon)
 

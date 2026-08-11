@@ -339,6 +339,23 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t NiNode_MinimumReadableSize = 0x180;
     }
 
+    namespace PointLight
+    {
+        inline constexpr std::size_t ObjectSize = 0x1D0;
+        inline constexpr std::ptrdiff_t Ambient = 0x160;
+        inline constexpr std::ptrdiff_t Diffuse = 0x16C;
+        inline constexpr std::ptrdiff_t Specular = 0x178;
+        inline constexpr std::ptrdiff_t Dimmer = 0x184;
+        inline constexpr std::ptrdiff_t ModelBound = 0x190;
+        inline constexpr std::ptrdiff_t RendererData = 0x1A0;
+        inline constexpr std::ptrdiff_t ConstantAttenuation = 0x1B0;
+        inline constexpr std::ptrdiff_t LinearAttenuation = 0x1B4;
+        inline constexpr std::ptrdiff_t QuadraticAttenuation = 0x1B8;
+        inline constexpr std::size_t ColorSize = 0x0C;
+        inline constexpr std::size_t RendererProxyMinimumReadableSize = 0x10;
+        inline constexpr std::size_t ManagerMinimumReadableSize = sizeof(std::uintptr_t);
+    }
+
     namespace Audio
     {
         inline constexpr std::size_t SoundHandleSize = 0x08;
