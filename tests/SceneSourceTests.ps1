@@ -14,7 +14,10 @@ $combined = $header + $source
 foreach ($needle in @(
     'NiAVObject_SetMaterialNeedsUpdateVtableIndex = 0x2E',
     'NiAVObject_SetAppCulledVtableIndex = 0x30',
-    'NiAVObject_UpdateWorldBoundVtableIndex = 0x36'
+    'NiAVObject_UpdateWorldBoundVtableIndex = 0x36',
+    'NiNode_AttachChildVtableIndex = 0x3D',
+    'NiNode_DetachChildVtableIndex = 0x40',
+    'NiAVObject_Parent = 0x28'
 )) {
     if (-not $layouts.Contains($needle)) {
         throw "Scene virtual catalog lost '$needle'."
@@ -31,10 +34,15 @@ $requiredContracts = @(
     'NiAVObject_SetMaterialNeedsUpdateVtableIndex',
     'NiAVObject_SetAppCulledVtableIndex',
     'NiAVObject_UpdateWorldBoundVtableIndex',
+    'addBethesdaReference(parent)',
+    'addBethesdaReference(child)',
+    'releaseBethesdaReference(child)',
+    'releaseBethesdaReference(parent)',
+    'result.parentAfter != result.parentAddress',
+    'result.parentAfter != 0',
     'desiredWorld.rotate.entry[row][0] * parentWorld.rotate.entry[column][0]',
     'local.rotate.entry[row][0] * parentWorld.rotate.entry[0][column]',
-    'attachment,',
-    'renderer-proxy, and NiPointer lifetime remain consumer responsibilities'
+    'long-lived reference ownership remain consumer responsibilities'
 )
 foreach ($needle in $requiredContracts) {
     if (-not $combined.Contains($needle)) {
@@ -42,8 +50,8 @@ foreach ($needle in $requiredContracts) {
     }
 }
 
-if ($combined -match 'CommonLib|REL::|F4SE' -or $source -match 'AttachChild|DetachChild|NiPointer') {
-    throw 'Core scene helpers must remain CommonLib-free and must not claim scene attachment or reference ownership.'
+if ($combined -match 'CommonLib|REL::|F4SE|NiPointer') {
+    throw 'Core scene helpers must remain CommonLib-free and must not introduce NiPointer ownership.'
 }
 
 Write-Host 'RPS native scene source contracts valid.'

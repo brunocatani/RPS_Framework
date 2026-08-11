@@ -104,10 +104,16 @@ int main()
     const auto material = api.setMaterialNeedsUpdate(true);
     const auto culled = api.setAppCulled(false);
     const auto bound = api.updateWorldBound();
+    HierarchyApi hierarchy{ module };
+    const auto attach = hierarchy.attachChild(&object, &object);
+    const auto detach = hierarchy.detachChild(&object, &object);
     if (module || material.status != ObjectCommandStatus::InvalidRuntime || material.invoked || material ||
         culled.status != ObjectCommandStatus::InvalidRuntime || culled.invoked || culled ||
         bound.status != ObjectCommandStatus::InvalidRuntime || bound.invoked || bound ||
+        attach.status != HierarchyStatus::InvalidRuntime || attach.invoked || attach ||
+        detach.status != HierarchyStatus::InvalidRuntime || detach.invoked || detach ||
         toString(ObjectCommandStatus::VtableUnavailable) != "vtable-unavailable" ||
+        toString(HierarchyStatus::ReferenceUnavailable) != "reference-unavailable" ||
         toString(TransformStatus::InvalidParentRotation) != "invalid-parent-rotation") {
         std::cerr << "scene object API did not fail closed without FO4VR\n";
         return 1;

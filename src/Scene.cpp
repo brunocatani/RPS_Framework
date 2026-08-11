@@ -2,6 +2,7 @@
 
 #include "RPS/Addresses/Layouts.h"
 #include "RPS/Runtime/Memory.h"
+#include "RPS/Runtime/NativeReference.h"
 #include "RPS/Runtime/WorldAccess.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -19,6 +20,8 @@ namespace RPS::Runtime::Scene
 
         using BooleanObjectCommand = void (*)(void*, bool);
         using UnaryObjectCommand = void (*)(void*);
+        using AttachChildCommand = void (*)(void*, void*, bool);
+        using DetachChildCommand = void (*)(void*, void*);
 
         [[nodiscard]] bool invokeBoolean(
             const BooleanObjectCommand function,
@@ -53,6 +56,130 @@ namespace RPS::Runtime::Scene
             function(object);
             return true;
 #endif
+        }
+
+        [[nodiscard]] bool invokeAttach(
+            const AttachChildCommand function,
+            void* const parent,
+            void* const child,
+            const bool firstAvailable) noexcept
+        {
+#if defined(_MSC_VER)
+            __try {
+                function(parent, child, firstAvailable);
+                return true;
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                return false;
+            }
+#else
+            function(parent, child, firstAvailable);
+            return true;
+#endif
+        }
+
+        [[nodiscard]] bool invokeDetach(
+            const DetachChildCommand function,
+            void* const parent,
+            void* const child) noexcept
+        {
+#if defined(_MSC_VER)
+            __try {
+                function(parent, child);
+                return true;
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                return false;
+            }
+#else
+            function(parent, child);
+            return true;
+#endif
+        }
+
+        [[nodiscard]] bool hasLiveBethesdaReference(const void* const object) noexcept
+        {
+            std::uint32_t referenceWord{};
+            return object &&
+                   Memory::read(
+                       reinterpret_cast<const void*>(
+                           reinterpret_cast<std::uintptr_t>(object) +
+                           static_cast<std::uintptr_t>(
+                               Addresses::Layouts::Bethesda::ReferencedObject_ReferenceWord)),
+                       referenceWord) &&
+                   (referenceWord & Addresses::Layouts::Bethesda::ReferencedObject_ReferenceCountMask) != 0;
+        }
+
+        [[nodiscard]] bool readParent(void* const child, std::uintptr_t& parent) noexcept
+        {
+            return Memory::read(
+                reinterpret_cast<const void*>(
+                    reinterpret_cast<std::uintptr_t>(child) +
+                    static_cast<std::uintptr_t>(Addresses::Layouts::Scene::NiAVObject_Parent)),
+                parent);
+        }
+
+        [[nodiscard]] bool resolveHierarchyVirtual(
+            void* const parent,
+            const std::size_t index,
+            std::uintptr_t& functionAddress) noexcept
+        {
+            std::uintptr_t vtable{};
+            if (!Memory::read(parent, vtable) || vtable == 0 ||
+                index > (std::numeric_limits<std::uintptr_t>::max)() / sizeof(void*) ||
+                !Memory::read(
+                    reinterpret_cast<const void*>(vtable + index * sizeof(void*)),
+                    functionAddress) ||
+                functionAddress == 0) {
+                return false;
+            }
+            return Memory::rangeHasAccess(
+                reinterpret_cast<const void*>(functionAddress),
+                1,
+                Memory::Access::Execute);
+        }
+
+        [[nodiscard]] HierarchyStatus hierarchyExecutionStatus(
+            const RuntimeModule& module,
+            void* const parent,
+            void* const child) noexcept
+        {
+            if (!module) {
+                return HierarchyStatus::InvalidRuntime;
+            }
+            if (!Memory::rangeHasAccess(
+                    parent,
+                    Addresses::Layouts::Scene::NiNode_MinimumReadableSize,
+                    Memory::Access::Read)) {
+                return HierarchyStatus::InvalidParent;
+            }
+            if (!Memory::rangeHasAccess(
+                    child,
+                    Addresses::Layouts::Scene::NiAVObject_MinimumReadableSize,
+                    Memory::Access::Read)) {
+                return HierarchyStatus::InvalidChild;
+            }
+            if (parent == child) {
+                return HierarchyStatus::SameObject;
+            }
+            switch (Physics::currentThreadPhysicsStepState(module)) {
+            case Physics::PhysicsStepState::Inside:
+                return HierarchyStatus::PhysicsStepActive;
+            case Physics::PhysicsStepState::Unknown:
+                return HierarchyStatus::PhysicsStepStateUnavailable;
+            case Physics::PhysicsStepState::Outside:
+                return HierarchyStatus::Completed;
+            }
+            return HierarchyStatus::PhysicsStepStateUnavailable;
+        }
+
+        void releaseHierarchyReferences(HierarchyCommandResult& result, void* parent, void* child) noexcept
+        {
+            const auto childReleased = !result.childTemporarilyRetained || releaseBethesdaReference(child);
+            const auto parentReleased = !result.parentTemporarilyRetained || releaseBethesdaReference(parent);
+            result.referencesReleased = childReleased && parentReleased;
+            if (!result.referencesReleased &&
+                (result.status == HierarchyStatus::Completed || result.status == HierarchyStatus::AlreadyAttached)) {
+                result.status = HierarchyStatus::ReferenceReleaseFailed;
+            }
         }
     }
 
@@ -292,6 +419,28 @@ namespace RPS::Runtime::Scene
         }
     }
 
+    std::string_view toString(const HierarchyStatus status) noexcept
+    {
+        switch (status) {
+        case HierarchyStatus::Completed: return "completed";
+        case HierarchyStatus::AlreadyAttached: return "already-attached";
+        case HierarchyStatus::InvalidRuntime: return "invalid-runtime";
+        case HierarchyStatus::InvalidParent: return "invalid-parent";
+        case HierarchyStatus::InvalidChild: return "invalid-child";
+        case HierarchyStatus::SameObject: return "same-object";
+        case HierarchyStatus::PhysicsStepActive: return "physics-step-active";
+        case HierarchyStatus::PhysicsStepStateUnavailable: return "physics-step-state-unavailable";
+        case HierarchyStatus::ChildAlreadyAttached: return "child-already-attached";
+        case HierarchyStatus::ParentMismatch: return "parent-mismatch";
+        case HierarchyStatus::VtableUnavailable: return "vtable-unavailable";
+        case HierarchyStatus::ReferenceUnavailable: return "reference-unavailable";
+        case HierarchyStatus::NativeFault: return "native-fault";
+        case HierarchyStatus::PostconditionFailed: return "postcondition-failed";
+        case HierarchyStatus::ReferenceReleaseFailed: return "reference-release-failed";
+        default: return "unknown";
+        }
+    }
+
     bool ObjectApi::executionContextValid(ObjectCommandResult& result) const noexcept
     {
         result.objectAddress = reinterpret_cast<std::uintptr_t>(_object);
@@ -386,6 +535,109 @@ namespace RPS::Runtime::Scene
                             _object) ?
             ObjectCommandStatus::Completed :
             ObjectCommandStatus::NativeFault;
+        return result;
+    }
+
+    HierarchyCommandResult HierarchyApi::attachChild(
+        void* const parent,
+        void* const child,
+        const bool firstAvailable) const noexcept
+    {
+        HierarchyCommandResult result{};
+        result.parentAddress = reinterpret_cast<std::uintptr_t>(parent);
+        result.childAddress = reinterpret_cast<std::uintptr_t>(child);
+        result.status = hierarchyExecutionStatus(_module, parent, child);
+        if (result.status != HierarchyStatus::Completed) {
+            return result;
+        }
+        if (!readParent(child, result.parentBefore)) {
+            result.status = HierarchyStatus::InvalidChild;
+            return result;
+        }
+        result.parentAfter = result.parentBefore;
+        if (result.parentBefore == result.parentAddress) {
+            result.status = HierarchyStatus::AlreadyAttached;
+            result.referencesReleased = true;
+            return result;
+        }
+        if (result.parentBefore != 0) {
+            result.status = HierarchyStatus::ChildAlreadyAttached;
+            return result;
+        }
+        if (!resolveHierarchyVirtual(
+                parent,
+                Addresses::Layouts::Scene::NiNode_AttachChildVtableIndex,
+                result.functionAddress)) {
+            result.status = HierarchyStatus::VtableUnavailable;
+            return result;
+        }
+        if (!hasLiveBethesdaReference(parent) || !hasLiveBethesdaReference(child) ||
+            !(result.parentTemporarilyRetained = addBethesdaReference(parent)) ||
+            !(result.childTemporarilyRetained = addBethesdaReference(child))) {
+            result.status = HierarchyStatus::ReferenceUnavailable;
+            releaseHierarchyReferences(result, parent, child);
+            return result;
+        }
+
+        result.invoked = true;
+        const auto invoked = invokeAttach(
+            reinterpret_cast<AttachChildCommand>(result.functionAddress),
+            parent,
+            child,
+            firstAvailable);
+        const auto parentRead = readParent(child, result.parentAfter);
+        result.status = !invoked ? HierarchyStatus::NativeFault :
+                        !parentRead || result.parentAfter != result.parentAddress ?
+                            HierarchyStatus::PostconditionFailed :
+                            HierarchyStatus::Completed;
+        releaseHierarchyReferences(result, parent, child);
+        return result;
+    }
+
+    HierarchyCommandResult HierarchyApi::detachChild(void* const parent, void* const child) const noexcept
+    {
+        HierarchyCommandResult result{};
+        result.parentAddress = reinterpret_cast<std::uintptr_t>(parent);
+        result.childAddress = reinterpret_cast<std::uintptr_t>(child);
+        result.status = hierarchyExecutionStatus(_module, parent, child);
+        if (result.status != HierarchyStatus::Completed) {
+            return result;
+        }
+        if (!readParent(child, result.parentBefore)) {
+            result.status = HierarchyStatus::InvalidChild;
+            return result;
+        }
+        result.parentAfter = result.parentBefore;
+        if (result.parentBefore != result.parentAddress) {
+            result.status = HierarchyStatus::ParentMismatch;
+            return result;
+        }
+        if (!resolveHierarchyVirtual(
+                parent,
+                Addresses::Layouts::Scene::NiNode_DetachChildVtableIndex,
+                result.functionAddress)) {
+            result.status = HierarchyStatus::VtableUnavailable;
+            return result;
+        }
+        if (!hasLiveBethesdaReference(parent) || !hasLiveBethesdaReference(child) ||
+            !(result.parentTemporarilyRetained = addBethesdaReference(parent)) ||
+            !(result.childTemporarilyRetained = addBethesdaReference(child))) {
+            result.status = HierarchyStatus::ReferenceUnavailable;
+            releaseHierarchyReferences(result, parent, child);
+            return result;
+        }
+
+        result.invoked = true;
+        const auto invoked = invokeDetach(
+            reinterpret_cast<DetachChildCommand>(result.functionAddress),
+            parent,
+            child);
+        const auto parentRead = readParent(child, result.parentAfter);
+        result.status = !invoked ? HierarchyStatus::NativeFault :
+                        !parentRead || result.parentAfter != 0 ?
+                            HierarchyStatus::PostconditionFailed :
+                            HierarchyStatus::Completed;
+        releaseHierarchyReferences(result, parent, child);
         return result;
     }
 }

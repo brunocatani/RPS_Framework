@@ -45,6 +45,7 @@ int main()
     RPS::Runtime::Collision::CollisionPairPolicy collisionPairPolicy{};
     const RPS::Runtime::Physics::CollisionBodyResolveResult collisionBody{};
     const RPS::Runtime::Scene::Transform sceneTransform{};
+    const RPS::Runtime::Scene::HierarchyCommandResult hierarchyCommand{};
     const auto rootTransform = RPS::Runtime::Animation::identityHkQsTransform();
     const RPS::Runtime::Audio::NativeSoundHandle soundHandle{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
@@ -56,7 +57,8 @@ int main()
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
                    !movementController.complete() && !intrusiveReference && !characterController.rigidBodyComplete() &&
                    !actorState.actorReadable && !pathRequest && collisionPairPolicy.stats().comparisons == 0 && !collisionBody &&
-                   sceneTransform.finite() && rootTransform.finite() && !soundHandle.active() && retirement == 7 ?
+                   sceneTransform.finite() && !hierarchyCommand && rootTransform.finite() && !soundHandle.active() &&
+                   retirement == 7 ?
         0 :
         1;
 }

@@ -75,6 +75,7 @@ namespace RPS::Addresses::Layouts
     namespace Bethesda
     {
         inline constexpr std::ptrdiff_t ReferencedObject_ReferenceWord = 0x08;
+        inline constexpr std::uint32_t ReferencedObject_ReferenceCountMask = 0x0000FFFF;
         inline constexpr std::size_t ReferencedObject_DestroyVtableIndex = 0;
         inline constexpr std::uint32_t AllocatorReadyState = 2;
         inline constexpr std::uint32_t CollisionObjectAllocatorContext = 0x41;
@@ -331,7 +332,11 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t NiAVObject_SetMaterialNeedsUpdateVtableIndex = 0x2E;
         inline constexpr std::size_t NiAVObject_SetAppCulledVtableIndex = 0x30;
         inline constexpr std::size_t NiAVObject_UpdateWorldBoundVtableIndex = 0x36;
-        inline constexpr std::size_t NiAVObject_MinimumReadableSize = sizeof(std::uintptr_t);
+        inline constexpr std::size_t NiNode_AttachChildVtableIndex = 0x3D;
+        inline constexpr std::size_t NiNode_DetachChildVtableIndex = 0x40;
+        inline constexpr std::ptrdiff_t NiAVObject_Parent = 0x28;
+        inline constexpr std::size_t NiAVObject_MinimumReadableSize = 0x30;
+        inline constexpr std::size_t NiNode_MinimumReadableSize = 0x180;
     }
 
     namespace Audio
