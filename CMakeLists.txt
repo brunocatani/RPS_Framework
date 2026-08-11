@@ -22,10 +22,15 @@ add_library(RPS::Addresses ALIAS RPSAddresses)
 set_target_properties(RPSAddresses PROPERTIES EXPORT_NAME Addresses)
 
 add_library(RPSRuntime STATIC
+  src/BodyAccess.cpp
   src/CollisionFilter.cpp
   src/GeneratorOutput.cpp
   src/Memory.cpp
+  src/PhysicsApi.cpp
+  src/PhysicsScale.cpp
+  src/PhysicsTiming.cpp
   src/RuntimeModule.cpp
+  src/WorldAccess.cpp
 )
 add_library(RPS::Runtime ALIAS RPSRuntime)
 set_target_properties(RPSRuntime PROPERTIES EXPORT_NAME Runtime)
@@ -75,11 +80,19 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSRuntimeModuleTests tests/RuntimeModuleTests.cpp)
   target_link_libraries(RPSRuntimeModuleTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSBodyAccessTests tests/BodyAccessTests.cpp)
+  target_link_libraries(RPSBodyAccessTests PRIVATE RPS::Runtime)
+
+  add_executable(RPSPhysicsPolicyTests tests/PhysicsPolicyTests.cpp)
+  target_link_libraries(RPSPhysicsPolicyTests PRIVATE RPS::Runtime)
+
   foreach(target IN ITEMS
       RPSAddressCatalogTests
       RPSGeneratorOutputTests
       RPSCollisionFilterTests
-      RPSRuntimeModuleTests)
+      RPSRuntimeModuleTests
+      RPSBodyAccessTests
+      RPSPhysicsPolicyTests)
     target_compile_features(${target} PRIVATE cxx_std_23)
     target_compile_options(${target} PRIVATE /utf-8 /permissive- /Zc:__cplusplus /W4)
     add_test(NAME ${target} COMMAND ${target})
