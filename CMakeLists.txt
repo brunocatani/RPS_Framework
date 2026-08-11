@@ -26,6 +26,7 @@ add_library(RPSRuntime STATIC
   src/AnimationPose.cpp
   src/BodyAccess.cpp
   src/BodyGravity.cpp
+  src/CharacterController.cpp
   src/CollisionFilter.cpp
   src/Constraint.cpp
   src/GeneratedBody.cpp
@@ -103,6 +104,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSBodyGravityTests tests/BodyGravityTests.cpp)
   target_link_libraries(RPSBodyGravityTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSCharacterControllerTests tests/CharacterControllerTests.cpp)
+  target_link_libraries(RPSCharacterControllerTests PRIVATE RPS::Runtime)
+
   add_executable(RPSPhysicsPolicyTests tests/PhysicsPolicyTests.cpp)
   target_link_libraries(RPSPhysicsPolicyTests PRIVATE RPS::Runtime)
 
@@ -144,6 +148,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSNativeReferenceTests
       RPSBodyAccessTests
       RPSBodyGravityTests
+      RPSCharacterControllerTests
       RPSPhysicsPolicyTests
       RPSMovementControllerTests
       RPSScenePhysicsTests
@@ -258,6 +263,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeReferenceSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSCharacterControllerSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/CharacterControllerSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

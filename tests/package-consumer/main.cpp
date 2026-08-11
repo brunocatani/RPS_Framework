@@ -2,6 +2,7 @@
 #include <RPS/Runtime/AnimationMotor.h>
 #include <RPS/Runtime/AnimationPose.h>
 #include <RPS/Runtime/BodyGravity.h>
+#include <RPS/Runtime/CharacterController.h>
 #include <RPS/Runtime/CollisionFilter.h>
 #include <RPS/Runtime/Constraint.h>
 #include <RPS/Runtime/GeneratedBody.h>
@@ -32,6 +33,7 @@ int main()
     const RPS::Runtime::Physics::BodyGravitySnapshot gravity{};
     const RPS::Runtime::Character::MovementControllerSnapshot movementController{};
     const RPS::Runtime::NativeIntrusivePtr intrusiveReference{};
+    const RPS::Runtime::Character::CharacterControllerSnapshot characterController{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
     return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
                    childTransform.finite() && RPS::Runtime::Physics::validPositionMotorTuning(motor) &&
@@ -39,7 +41,8 @@ int main()
                    animationTransform.finite() && hookPatch.callsite == 0 && rayRequest.maxDistanceGame == 0.0f &&
                    !ragdollPointers.complete() && !impactContact.sourceBodyId.valid() &&
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
-                   !movementController.complete() && !intrusiveReference && retirement == 7 ?
+                   !movementController.complete() && !intrusiveReference && !characterController.rigidBodyComplete() &&
+                   retirement == 7 ?
         0 :
         1;
 }

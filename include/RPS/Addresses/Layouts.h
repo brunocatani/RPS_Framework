@@ -257,4 +257,18 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t Controller_PathingMasterFlagIndex = 5;
         inline constexpr std::size_t Controller_MinimumReadableSize = 0x1A8;
     }
+
+    namespace CharacterController
+    {
+        inline constexpr std::ptrdiff_t BhkWorld_RigidBodyManager = 0xD8;
+        inline constexpr std::size_t BhkWorld_MinimumReadableSize = 0x148;
+        inline constexpr std::size_t RigidBodyManager_MinimumReadableSize = 0x70;
+        inline constexpr std::ptrdiff_t RigidBodyManager_ControllerList = 0x10;
+        inline constexpr std::ptrdiff_t RigidBodyManager_ControllerCount = 0x20;
+        inline constexpr std::ptrdiff_t Controller_RigidBody = 0x470;
+        inline constexpr std::size_t Controller_MinimumReadableSize = 0x478;
+        inline constexpr std::ptrdiff_t RigidBody_StepGate = 0xA8;
+        inline constexpr std::size_t RigidBody_MinimumReadableSize = 0xA9;
+        inline constexpr std::uint32_t MaximumManagerControllerScan = 8192;
+    }
 }
