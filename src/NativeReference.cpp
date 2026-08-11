@@ -108,6 +108,42 @@ namespace RPS::Runtime
             }
 #endif
         }
+
+        [[nodiscard]] bool addBethesdaReferenceWord(const void* const object) noexcept
+        {
+            if (!object) {
+                return false;
+            }
+            auto* const referenceWord = reinterpret_cast<volatile long*>(
+                reinterpret_cast<std::uintptr_t>(object) +
+                static_cast<std::uintptr_t>(Addresses::Layouts::Bethesda::ReferencedObject_ReferenceWord));
+            if (!Memory::rangeHasAccess(
+                    const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Read) ||
+                !Memory::rangeHasAccess(const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Write)) {
+                return false;
+            }
+
+#if defined(_MSC_VER)
+            __try {
+#endif
+                for (;;) {
+                    const long previous = *referenceWord;
+                    const auto unsignedPrevious = static_cast<std::uint32_t>(previous);
+                    const auto references = static_cast<std::uint16_t>(unsignedPrevious);
+                    if (references == (std::numeric_limits<std::uint16_t>::max)()) {
+                        return true;
+                    }
+                    const auto next = static_cast<long>(unsignedPrevious + 1u);
+                    if (_InterlockedCompareExchange(referenceWord, next, previous) == previous) {
+                        return true;
+                    }
+                }
+#if defined(_MSC_VER)
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                return false;
+            }
+#endif
+        }
     }
 
     bool addHavokReference(const void* const object) noexcept
@@ -155,6 +191,11 @@ namespace RPS::Runtime
             Addresses::Layouts::Havok::ReferencedObject_ReferenceWord,
             true,
             invokeHavokDestroy);
+    }
+
+    bool addBethesdaReference(const void* const object) noexcept
+    {
+        return addBethesdaReferenceWord(object);
     }
 
     bool releaseBethesdaReference(void* const object) noexcept

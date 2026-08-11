@@ -54,6 +54,7 @@ int main()
     ShapeHandle second{ std::move(first) };
     second = ShapeHandle{};
     if (first || second || ShapeHandle::adopt(nullptr) || addHavokReference(nullptr) ||
+        addBethesdaReference(nullptr) ||
         releaseHavokReference(nullptr) || releaseBethesdaReference(nullptr)) {
         std::cerr << "empty ownership contract failed\n";
         return 1;

@@ -31,6 +31,7 @@ add_library(RPSRuntime STATIC
   src/GeneratorOutput.cpp
   src/HavokAllocator.cpp
   src/HookPatch.cpp
+  src/Impact.cpp
   src/Memory.cpp
   src/NativeReference.cpp
   src/PhysicsApi.cpp
@@ -117,6 +118,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSRagdollTests tests/RagdollTests.cpp)
   target_link_libraries(RPSRagdollTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSImpactTests tests/ImpactTests.cpp)
+  target_link_libraries(RPSImpactTests PRIVATE RPS::Runtime)
+
   foreach(target IN ITEMS
       RPSAddressCatalogTests
       RPSGeneratorOutputTests
@@ -130,7 +134,8 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSAnimationControlTests
       RPSHookPatchTests
       RPSWorldQueryTests
-      RPSRagdollTests)
+      RPSRagdollTests
+      RPSImpactTests)
     target_compile_features(${target} PRIVATE cxx_std_23)
     target_compile_options(${target} PRIVATE /utf-8 /permissive- /Zc:__cplusplus /W4)
     add_test(NAME ${target} COMMAND ${target})
@@ -198,6 +203,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/RagdollSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSImpactSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/ImpactSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

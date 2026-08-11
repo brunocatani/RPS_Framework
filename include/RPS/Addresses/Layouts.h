@@ -231,4 +231,17 @@ namespace RPS::Addresses::Layouts
         inline constexpr float ShapeCastTolerance = 0.001f;
         inline constexpr std::size_t MaximumCollectedHits = 16;
     }
+
+    namespace Impact
+    {
+        inline constexpr std::size_t PhysicsImpactContactSize = 0x40;
+        inline constexpr std::size_t DamageImpactDataSize = 0x40;
+        inline constexpr std::ptrdiff_t DamageImpactData_Location = 0x00;
+        inline constexpr std::ptrdiff_t DamageImpactData_Normal = 0x10;
+        inline constexpr std::ptrdiff_t DamageImpactData_Velocity = 0x20;
+        inline constexpr std::ptrdiff_t DamageImpactData_CollisionObject = 0x30;
+        inline constexpr std::size_t HitDataSize = 0xE0;
+        inline constexpr std::size_t HitDataAlignment = 0x10;
+        inline constexpr std::ptrdiff_t HitData_AggressorHandle = 0x40;
+    }
 }
