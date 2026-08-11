@@ -54,7 +54,8 @@ int main()
     Api api(module, &dummyWorld);
     Vector4 outputLinear{};
     Vector4 outputAngular{};
-    if (module || currentThreadInsidePhysicsStep(module) || readGuard.active() || writeGuard.active() ||
+    if (module || currentThreadPhysicsStepState(module) != PhysicsStepState::Unknown ||
+        currentThreadInsidePhysicsStep(module) || readGuard.active() || writeGuard.active() ||
         api.snapshot(readGuard, BodyId{ 1 }).valid || api.activate(writeGuard, BodyId{ 1 }) ||
         api.setCollisionFilterInfo(writeGuard, BodyId{ 1 }, 43) ||
         api.computeHardKeyFrame(

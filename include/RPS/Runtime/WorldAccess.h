@@ -6,6 +6,13 @@
 
 namespace RPS::Runtime::Physics
 {
+    enum class PhysicsStepState : std::uint8_t
+    {
+        Unknown,
+        Outside,
+        Inside,
+    };
+
     enum class ReadAccessMode : std::uint8_t
     {
         None,
@@ -13,6 +20,14 @@ namespace RPS::Runtime::Physics
         ReadLockHeld,
     };
 
+    enum class WriteAccessMode : std::uint8_t
+    {
+        None,
+        PhysicsStepOwned,
+        WriteMarked,
+    };
+
+    [[nodiscard]] PhysicsStepState currentThreadPhysicsStepState(const RuntimeModule& module) noexcept;
     [[nodiscard]] bool currentThreadInsidePhysicsStep(const RuntimeModule& module) noexcept;
 
     class WorldReadGuard
@@ -48,12 +63,13 @@ namespace RPS::Runtime::Physics
         WorldWriteGuard(WorldWriteGuard&&) = delete;
         WorldWriteGuard& operator=(WorldWriteGuard&&) = delete;
 
-        [[nodiscard]] bool active() const noexcept { return _marked; }
-        [[nodiscard]] bool owns(const void* world) const noexcept { return _marked && _world == world; }
+        [[nodiscard]] bool active() const noexcept { return _mode != WriteAccessMode::None; }
+        [[nodiscard]] bool owns(const void* world) const noexcept { return active() && _world == world; }
+        [[nodiscard]] WriteAccessMode mode() const noexcept { return _mode; }
 
     private:
         const RuntimeModule* _module{};
         void* _world{};
-        bool _marked{};
+        WriteAccessMode _mode{ WriteAccessMode::None };
     };
 }

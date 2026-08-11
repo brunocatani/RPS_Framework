@@ -32,24 +32,31 @@ namespace RPS::Runtime::Physics
         }
     }
 
-    bool currentThreadInsidePhysicsStep(const RuntimeModule& module) noexcept
+    PhysicsStepState currentThreadPhysicsStepState(const RuntimeModule& module) noexcept
     {
         if (!module) {
-            return false;
+            return PhysicsStepState::Unknown;
         }
 
         std::uint32_t tlsIndex{};
         const auto indexAddress = module.resolve(Addresses::Symbol::Memory_BethesdaTlsIndex);
         if (indexAddress == 0 || !Memory::read(reinterpret_cast<const void*>(indexAddress), tlsIndex)) {
-            return false;
+            return PhysicsStepState::Unknown;
         }
 
         const auto tlsBase = reinterpret_cast<std::uintptr_t>(TlsGetValue(tlsIndex));
         std::uint8_t flag{};
-        return tlsBase != 0 &&
-               Memory::read(
-                   reinterpret_cast<const void*>(tlsBase + Addresses::Layouts::Havok::ExeTls_InPhysicsStepFlag), flag) &&
-               flag != 0;
+        if (tlsBase == 0 ||
+            !Memory::read(
+                reinterpret_cast<const void*>(tlsBase + Addresses::Layouts::Havok::ExeTls_InPhysicsStepFlag), flag)) {
+            return PhysicsStepState::Unknown;
+        }
+        return flag != 0 ? PhysicsStepState::Inside : PhysicsStepState::Outside;
+    }
+
+    bool currentThreadInsidePhysicsStep(const RuntimeModule& module) noexcept
+    {
+        return currentThreadPhysicsStepState(module) == PhysicsStepState::Inside;
     }
 
     WorldReadGuard::WorldReadGuard(const RuntimeModule& module, void* const hknpWorld) noexcept :
@@ -58,8 +65,12 @@ namespace RPS::Runtime::Physics
         if (!module || !hknpWorld) {
             return;
         }
-        if (currentThreadInsidePhysicsStep(module)) {
+        const auto physicsStep = currentThreadPhysicsStepState(module);
+        if (physicsStep == PhysicsStepState::Inside) {
             _mode = ReadAccessMode::PhysicsStepOwned;
+            return;
+        }
+        if (physicsStep != PhysicsStepState::Outside) {
             return;
         }
 
@@ -86,16 +97,28 @@ namespace RPS::Runtime::Physics
         if (!module || !hknpWorld) {
             return;
         }
+        // A physics callback already owns the write epoch; MarkForWrite is not
+        // re-entrant. Unknown TLS ownership fails closed.
+        const auto physicsStep = currentThreadPhysicsStepState(module);
+        if (physicsStep == PhysicsStepState::Inside) {
+            _mode = WriteAccessMode::PhysicsStepOwned;
+            return;
+        }
+        if (physicsStep != PhysicsStepState::Outside) {
+            return;
+        }
         const auto mark = module.resolveFunction<WorldAccessFunction>(Addresses::Symbol::World_MarkForWrite);
-        _marked = invokeWorldAccess(mark, hknpWorld);
+        if (invokeWorldAccess(mark, hknpWorld)) {
+            _mode = WriteAccessMode::WriteMarked;
+        }
     }
 
     WorldWriteGuard::~WorldWriteGuard() noexcept
     {
-        if (_marked && _module && *_module) {
+        if (_mode == WriteAccessMode::WriteMarked && _module && *_module) {
             const auto unmark = _module->resolveFunction<WorldAccessFunction>(Addresses::Symbol::World_UnmarkForWrite);
             (void)invokeWorldAccess(unmark, _world);
         }
-        _marked = false;
+        _mode = WriteAccessMode::None;
     }
 }

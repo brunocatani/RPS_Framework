@@ -49,6 +49,7 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t HknpMotion_AngularVelocity = 0x50;
         inline constexpr std::ptrdiff_t HknpMotion_PreviousLinearVelocity = 0x60;
         inline constexpr std::ptrdiff_t HknpMotion_PreviousAngularVelocity = 0x70;
+        inline constexpr std::ptrdiff_t MotionPropertiesLibrary_Data = 0x28;
         inline constexpr std::size_t MotionProperties_Stride = 0x40;
         inline constexpr std::ptrdiff_t MotionProperties_GravityFactor = 0x08;
         inline constexpr std::ptrdiff_t MotionProperties_LinearDamping = 0x18;

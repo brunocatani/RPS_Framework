@@ -25,6 +25,7 @@ add_library(RPSRuntime STATIC
   src/AnimationMotor.cpp
   src/AnimationPose.cpp
   src/BodyAccess.cpp
+  src/BodyGravity.cpp
   src/CollisionFilter.cpp
   src/Constraint.cpp
   src/GeneratedBody.cpp
@@ -39,6 +40,7 @@ add_library(RPSRuntime STATIC
   src/PhysicsTiming.cpp
   src/Ragdoll.cpp
   src/RuntimeModule.cpp
+  src/ScenePhysics.cpp
   src/Shape.cpp
   src/WorldAccess.cpp
   src/WorldQuery.cpp
@@ -94,8 +96,14 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSBodyAccessTests tests/BodyAccessTests.cpp)
   target_link_libraries(RPSBodyAccessTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSBodyGravityTests tests/BodyGravityTests.cpp)
+  target_link_libraries(RPSBodyGravityTests PRIVATE RPS::Runtime)
+
   add_executable(RPSPhysicsPolicyTests tests/PhysicsPolicyTests.cpp)
   target_link_libraries(RPSPhysicsPolicyTests PRIVATE RPS::Runtime)
+
+  add_executable(RPSScenePhysicsTests tests/ScenePhysicsTests.cpp)
+  target_link_libraries(RPSScenePhysicsTests PRIVATE RPS::Runtime)
 
   add_executable(RPSShapeTests tests/ShapeTests.cpp)
   target_link_libraries(RPSShapeTests PRIVATE RPS::Runtime)
@@ -127,7 +135,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSCollisionFilterTests
       RPSRuntimeModuleTests
       RPSBodyAccessTests
+      RPSBodyGravityTests
       RPSPhysicsPolicyTests
+      RPSScenePhysicsTests
       RPSShapeTests
       RPSGeneratedBodyTests
       RPSConstraintTests
@@ -212,6 +222,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/ImpactSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSRecursivePhysicsSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/RecursivePhysicsSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(
