@@ -1,4 +1,5 @@
 #include <RPS/Addresses/Catalog.h>
+#include <RPS/Runtime/ActorPathing.h>
 #include <RPS/Runtime/ActorState.h>
 #include <RPS/Runtime/AnimationMotor.h>
 #include <RPS/Runtime/AnimationPose.h>
@@ -40,6 +41,7 @@ int main()
     const RPS::Runtime::NativeIntrusivePtr intrusiveReference{};
     const RPS::Runtime::Character::CharacterControllerSnapshot characterController{};
     const RPS::Runtime::Character::ActorStateSnapshot actorState{};
+    RPS::Runtime::Character::CurrentPathRequestResult pathRequest{};
     RPS::Runtime::Collision::CollisionPairPolicy collisionPairPolicy{};
     const RPS::Runtime::Physics::CollisionBodyResolveResult collisionBody{};
     const RPS::Runtime::Scene::Transform sceneTransform{};
@@ -53,7 +55,7 @@ int main()
                    !ragdollPointers.complete() && !impactContact.sourceBodyId.valid() &&
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
                    !movementController.complete() && !intrusiveReference && !characterController.rigidBodyComplete() &&
-                   !actorState.actorReadable && collisionPairPolicy.stats().comparisons == 0 && !collisionBody &&
+                   !actorState.actorReadable && !pathRequest && collisionPairPolicy.stats().comparisons == 0 && !collisionBody &&
                    sceneTransform.finite() && rootTransform.finite() && !soundHandle.active() && retirement == 7 ?
         0 :
         1;

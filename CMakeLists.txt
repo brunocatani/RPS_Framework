@@ -22,6 +22,7 @@ add_library(RPS::Addresses ALIAS RPSAddresses)
 set_target_properties(RPSAddresses PROPERTIES EXPORT_NAME Addresses)
 
 add_library(RPSRuntime STATIC
+  src/ActorPathing.cpp
   src/ActorState.cpp
   src/AnimationMotor.cpp
   src/AnimationPose.cpp
@@ -115,6 +116,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSActorStateTests tests/ActorStateTests.cpp)
   target_link_libraries(RPSActorStateTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSActorPathingTests tests/ActorPathingTests.cpp)
+  target_link_libraries(RPSActorPathingTests PRIVATE RPS::Runtime)
+
   add_executable(RPSAudioTests tests/AudioTests.cpp)
   target_link_libraries(RPSAudioTests PRIVATE RPS::Runtime)
 
@@ -167,6 +171,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSBodyGravityTests
       RPSCharacterControllerTests
       RPSActorStateTests
+      RPSActorPathingTests
       RPSAudioTests
       RPSPhysicsPolicyTests
       RPSMovementControllerTests
@@ -338,6 +343,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/ActorStateSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSActorPathingSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/ActorPathingSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

@@ -289,6 +289,13 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::uint32_t MaximumManagerControllerScan = 8192;
     }
 
+    namespace Pathing
+    {
+        inline constexpr std::size_t Actor_MinimumReadableSize = sizeof(std::uintptr_t);
+        inline constexpr std::uint32_t PackageLoopAllowedMask = 0xFF;
+        inline constexpr std::size_t DirectMovementVectorCount = 3;
+    }
+
     namespace ActorState
     {
         inline constexpr std::ptrdiff_t Actor_StateSubobject = 0x128;
