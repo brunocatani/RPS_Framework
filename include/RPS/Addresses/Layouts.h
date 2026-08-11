@@ -185,8 +185,17 @@ namespace RPS::Addresses::Layouts
 
         inline constexpr std::ptrdiff_t Graph_RagdollDriver = 0x208;
         inline constexpr std::ptrdiff_t Driver_RagdollInterface = 0x70;
+        inline constexpr std::ptrdiff_t Interface_GetBodyHandleVtableSlot = 0x38;
+        inline constexpr std::ptrdiff_t Interface_GetLowSkeletonVtableSlot = 0x50;
         inline constexpr std::ptrdiff_t Interface_WorldReference = 0x10;
         inline constexpr std::ptrdiff_t Interface_Ragdoll = 0x18;
+        inline constexpr std::ptrdiff_t PhysicsInterface_GetBodyOffsetVtableSlot = 0x60;
+        inline constexpr std::ptrdiff_t PhysicsInterface_GetBodyTransformVtableSlot = 0x70;
+        inline constexpr std::ptrdiff_t LowSkeleton_ParentIndices = 0x18;
+        inline constexpr std::ptrdiff_t LowSkeleton_BoneCount = 0x30;
+        inline constexpr std::size_t LowSkeleton_MinimumReadableSize = 0x34;
+        inline constexpr std::ptrdiff_t BodyHandle_BodyId = 0x10;
+        inline constexpr std::size_t BodyHandle_MinimumReadableSize = 0x14;
         inline constexpr std::ptrdiff_t WorldReference_World = 0x18;
         inline constexpr std::ptrdiff_t Ragdoll_BodyIds = 0x20;
         inline constexpr std::ptrdiff_t Ragdoll_BodyIdCount = 0x28;
@@ -198,6 +207,9 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t Ragdoll_BodyMapCapacityAndFlags = 0x54;
         inline constexpr std::uint32_t ArrayCapacityMask = 0x3FFFFFFF;
         inline constexpr std::size_t MaximumBodyCount = 255;
+        inline constexpr std::size_t MaximumLowPoseBoneCount = 256;
+        inline constexpr std::size_t MaximumHighPoseBoneCount = 1024;
+        inline constexpr std::uint32_t InvalidBodyId = 0x7FFFFFFF;
 
         inline constexpr std::size_t SetPhysicsWorldStateSize = 0x10;
         inline constexpr std::ptrdiff_t SetPhysicsWorldState_Applied = 0x08;

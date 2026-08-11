@@ -43,6 +43,7 @@ add_library(RPSRuntime STATIC
   src/PhysicsScale.cpp
   src/PhysicsTiming.cpp
   src/Ragdoll.cpp
+  src/RootPose.cpp
   src/RuntimeModule.cpp
   src/Scene.cpp
   src/ScenePhysics.cpp
@@ -146,6 +147,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSRagdollTests tests/RagdollTests.cpp)
   target_link_libraries(RPSRagdollTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSRootPoseTests tests/RootPoseTests.cpp)
+  target_link_libraries(RPSRootPoseTests PRIVATE RPS::Runtime)
+
   add_executable(RPSImpactTests tests/ImpactTests.cpp)
   target_link_libraries(RPSImpactTests PRIVATE RPS::Runtime)
 
@@ -170,6 +174,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSHookPatchTests
       RPSWorldQueryTests
       RPSRagdollTests
+      RPSRootPoseTests
       RPSImpactTests)
     target_compile_features(${target} PRIVATE cxx_std_23)
     target_compile_options(${target} PRIVATE /utf-8 /permissive- /Zc:__cplusplus /W4)
@@ -238,6 +243,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/RagdollSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSRootPoseSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/RootPoseSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(
