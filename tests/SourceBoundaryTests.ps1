@@ -8,8 +8,8 @@ $ErrorActionPreference = 'Stop'
 
 $includeRoot = Join-Path $Root 'include'
 $sourceRoot = Join-Path $Root 'src'
-$catalogPath = Join-Path $includeRoot 'RPS/Addresses/Fallout4Vr_1_2_72.inc'
-$layoutsPath = Join-Path $includeRoot 'RPS/Addresses/Layouts.h'
+$catalogPath = [System.IO.Path]::GetFullPath((Join-Path $includeRoot 'RPS/Addresses/Fallout4Vr_1_2_72.inc'))
+$layoutsPath = [System.IO.Path]::GetFullPath((Join-Path $includeRoot 'RPS/Addresses/Layouts.h'))
 
 if (-not (Test-Path -LiteralPath $catalogPath) -or -not (Test-Path -LiteralPath $layoutsPath)) {
     throw 'The versioned address and layout catalogs are mandatory.'

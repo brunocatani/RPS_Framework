@@ -57,4 +57,3 @@ namespace RPS::Runtime::Physics
         bool _marked{};
     };
 }
-

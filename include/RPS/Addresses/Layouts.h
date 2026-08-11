@@ -7,6 +7,9 @@ namespace RPS::Addresses::Layouts
 {
     namespace Havok
     {
+        inline constexpr std::ptrdiff_t ReferencedObject_ReferenceWord = 0x08;
+        inline constexpr std::size_t ReferencedObject_DestroyVtableIndex = 3;
+        inline constexpr std::ptrdiff_t HkThreadMemory_Allocator = 0x58;
         inline constexpr std::ptrdiff_t BhkWorld_HknpWorld = 0x60;
         inline constexpr std::ptrdiff_t HknpWorld_BodyArray = 0x20;
         inline constexpr std::ptrdiff_t HknpWorld_BodyHighWaterMark = 0x70;
@@ -47,6 +50,27 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t MotionProperties_LinearDamping = 0x18;
         inline constexpr std::ptrdiff_t MotionProperties_AngularDamping = 0x1C;
         inline constexpr std::ptrdiff_t ExeTls_InPhysicsStepFlag = 0x1529;
+    }
+
+    namespace Shape
+    {
+        inline constexpr std::size_t ConvexBuildConfigSize = 0x80;
+        inline constexpr std::size_t MaximumConvexPointCount = 0xFC;
+        inline constexpr std::size_t InstanceSize = 0x80;
+        inline constexpr std::ptrdiff_t Instance_Flags = 0x0C;
+        inline constexpr std::ptrdiff_t Instance_Shape = 0x50;
+        inline constexpr std::ptrdiff_t Instance_Index = 0x58;
+        inline constexpr std::uint32_t InstanceDefaultFlags = 0x3F000040;
+        inline constexpr std::size_t CompoundCinfoSize = 0x28;
+        inline constexpr std::size_t CompoundStorageSize = 0xD0;
+        inline constexpr std::size_t MaximumCompoundChildren = 0x7FFE;
+        inline constexpr std::size_t ChildTransformSize = 0x60;
+    }
+
+    namespace Bethesda
+    {
+        inline constexpr std::ptrdiff_t ReferencedObject_ReferenceWord = 0x08;
+        inline constexpr std::size_t ReferencedObject_DestroyVtableIndex = 0;
     }
 
     namespace Collision

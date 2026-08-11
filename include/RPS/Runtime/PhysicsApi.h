@@ -65,4 +65,3 @@ namespace RPS::Runtime::Physics
         void* _world{};
     };
 }
-

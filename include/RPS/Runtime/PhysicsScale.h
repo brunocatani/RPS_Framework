@@ -26,4 +26,3 @@ namespace RPS::Runtime::Physics
     [[nodiscard]] bool usableScale(float value) noexcept;
     [[nodiscard]] ScaleSnapshot readScaleSnapshot(const RuntimeModule& module) noexcept;
 }
-
