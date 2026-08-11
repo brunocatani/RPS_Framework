@@ -163,6 +163,40 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t GraphManager_ActiveGraphIndex = 0xD8;
     }
 
+    namespace Ragdoll
+    {
+        inline constexpr std::ptrdiff_t Actor_GetGraphManagerVtable = 0x20;
+        inline constexpr std::size_t GraphManagerSize = 0xE0;
+        inline constexpr std::ptrdiff_t GraphManager_ReferenceCount = 0x08;
+        inline constexpr std::ptrdiff_t GraphManager_GraphArrayFlags = 0x40;
+        inline constexpr std::ptrdiff_t GraphManager_GraphArrayStorage = 0x48;
+        inline constexpr std::ptrdiff_t GraphManager_GraphArrayCount = 0x50;
+        inline constexpr std::ptrdiff_t GraphManager_UpdateLock = 0xC8;
+        inline constexpr std::uint32_t GraphArrayInlineFlag = 0x80000000;
+        inline constexpr std::uint32_t GraphArrayCapacityMask = 0x7FFFFFFF;
+        inline constexpr std::size_t MaximumGraphCount = 32;
+        inline constexpr std::uint32_t GraphLockAttemptLimit = 4096;
+
+        inline constexpr std::ptrdiff_t Graph_RagdollDriver = 0x208;
+        inline constexpr std::ptrdiff_t Driver_RagdollInterface = 0x70;
+        inline constexpr std::ptrdiff_t Interface_WorldReference = 0x10;
+        inline constexpr std::ptrdiff_t Interface_Ragdoll = 0x18;
+        inline constexpr std::ptrdiff_t WorldReference_World = 0x18;
+        inline constexpr std::ptrdiff_t Ragdoll_BodyIds = 0x20;
+        inline constexpr std::ptrdiff_t Ragdoll_BodyIdCount = 0x28;
+        inline constexpr std::ptrdiff_t Ragdoll_BodyIdCapacityAndFlags = 0x2C;
+        inline constexpr std::ptrdiff_t Ragdoll_ConstraintIds = 0x30;
+        inline constexpr std::ptrdiff_t Ragdoll_ConstraintIdCount = 0x38;
+        inline constexpr std::ptrdiff_t Ragdoll_BodyMap = 0x48;
+        inline constexpr std::ptrdiff_t Ragdoll_BodyMapCount = 0x50;
+        inline constexpr std::ptrdiff_t Ragdoll_BodyMapCapacityAndFlags = 0x54;
+        inline constexpr std::uint32_t ArrayCapacityMask = 0x3FFFFFFF;
+        inline constexpr std::size_t MaximumBodyCount = 255;
+
+        inline constexpr std::size_t SetPhysicsWorldStateSize = 0x10;
+        inline constexpr std::ptrdiff_t SetPhysicsWorldState_Applied = 0x08;
+    }
+
     namespace Query
     {
         inline constexpr std::size_t PickDataSize = 0xE0;

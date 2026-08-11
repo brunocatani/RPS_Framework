@@ -6,6 +6,7 @@
 #include <RPS/Runtime/GeneratedBody.h>
 #include <RPS/Runtime/HookPatch.h>
 #include <RPS/Runtime/PhysicsTypes.h>
+#include <RPS/Runtime/Ragdoll.h>
 #include <RPS/Runtime/Shape.h>
 #include <RPS/Runtime/WorldQuery.h>
 
@@ -20,12 +21,13 @@ int main()
     const RPS::Runtime::Animation::HkQsTransform animationTransform{};
     const RPS::Runtime::Hooks::DirectCallPatch hookPatch{};
     const RPS::Runtime::Physics::RayRequest rayRequest{};
+    const RPS::Runtime::Physics::RagdollPointers ragdollPointers{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
     return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
                    childTransform.finite() && RPS::Runtime::Physics::validPositionMotorTuning(motor) &&
                    RPS::Runtime::Animation::sanitizeMotorControlSettings(animationMotor).forceKeyframedControls &&
                    animationTransform.finite() && hookPatch.callsite == 0 && rayRequest.maxDistanceGame == 0.0f &&
-                   retirement == 7 ?
+                   !ragdollPointers.complete() && retirement == 7 ?
         0 :
         1;
 }
