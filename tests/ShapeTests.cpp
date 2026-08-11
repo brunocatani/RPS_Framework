@@ -84,7 +84,8 @@ int main()
         Vector4{ 0.0f, 1.0f, 0.0f, 0.0f },
         Vector4{ 0.0f, 0.0f, 1.0f, 0.0f },
     };
-    if (module || factory.buildConvex(points, 0.01f) || factory.buildStaticCompound({})) {
+    if (module || factory.buildSphereHavok(1.0f) || factory.buildSphereGame(70.0f) ||
+        factory.buildConvex(points, 0.01f) || factory.buildStaticCompound({})) {
         std::cerr << "invalid runtime shape factory did not fail closed\n";
         return 1;
     }

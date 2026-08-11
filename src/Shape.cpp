@@ -4,6 +4,7 @@
 #include "RPS/Runtime/HavokAllocator.h"
 #include "RPS/Runtime/Memory.h"
 #include "RPS/Runtime/NativeReference.h"
+#include "RPS/Runtime/PhysicsScale.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -50,6 +51,7 @@ namespace RPS::Runtime::Physics
 
         using InitConvexConfigFunction = void* (*)(void*);
         using BuildConvexFunction = void* (*)(const StridedPointArray*, float, void*);
+        using BuildSphereFunction = void* (*)(Vector4*, float);
         using ConstructCinfoFunction = CompoundCinfo* (*)(CompoundCinfo*, ShapeInstance*, std::int32_t, void*);
         using ConstructStaticFunction = void* (*)(void*, CompoundCinfo*, std::uint64_t, void*);
         using ConstructDynamicFunction = void* (*)(void*, CompoundCinfo*);
@@ -323,6 +325,33 @@ namespace RPS::Runtime::Physics
             return {};
         }
         return ShapeHandle::adopt(shape);
+    }
+
+    ShapeHandle ShapeFactory::buildSphereHavok(const float radiusHavok) const noexcept
+    {
+        if (!_module || !std::isfinite(radiusHavok) || radiusHavok <= 0.000001f) {
+            return {};
+        }
+
+        const auto build = _module.resolveFunction<BuildSphereFunction>(Addresses::Symbol::Shape_CreateSphere);
+        Vector4 center{};
+        void* shape{};
+        if (!invokeResult(shape, build, &center, radiusHavok) || !shape) {
+            return {};
+        }
+        return ShapeHandle::adopt(shape);
+    }
+
+    ShapeHandle ShapeFactory::buildSphereGame(const float radiusGame) const noexcept
+    {
+        if (!std::isfinite(radiusGame) || radiusGame <= 0.000001f) {
+            return {};
+        }
+        const auto scale = readScaleSnapshot(_module);
+        if (!scale.runtimeBacked) {
+            return {};
+        }
+        return buildSphereHavok(radiusGame * scale.gameToHavok);
     }
 
     ShapeHandle ShapeFactory::buildStaticCompound(const std::span<const CompoundChild> children) const noexcept

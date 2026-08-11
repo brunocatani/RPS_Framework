@@ -58,6 +58,8 @@ namespace RPS::Runtime::Physics
     public:
         explicit ShapeFactory(RuntimeModule module) noexcept : _module(module) {}
 
+        [[nodiscard]] ShapeHandle buildSphereHavok(float radiusHavok) const noexcept;
+        [[nodiscard]] ShapeHandle buildSphereGame(float radiusGame) const noexcept;
         [[nodiscard]] ShapeHandle buildConvex(std::span<const Vector4> localHavokPoints, float convexRadius) const noexcept;
         [[nodiscard]] ShapeHandle buildStaticCompound(std::span<const CompoundChild> children) const noexcept;
 

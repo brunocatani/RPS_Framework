@@ -162,4 +162,39 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t Graph_Driver = 0x208;
         inline constexpr std::ptrdiff_t GraphManager_ActiveGraphIndex = 0xD8;
     }
+
+    namespace Query
+    {
+        inline constexpr std::size_t PickDataSize = 0xE0;
+        inline constexpr std::ptrdiff_t PickData_CollisionFilterInfo = 0x0A;
+        inline constexpr std::ptrdiff_t PickData_Result = 0x58;
+
+        inline constexpr std::size_t CollisionResultSize = 0x60;
+        inline constexpr std::ptrdiff_t CollisionResult_Position = 0x00;
+        inline constexpr std::ptrdiff_t CollisionResult_Normal = 0x10;
+        inline constexpr std::ptrdiff_t CollisionResult_Fraction = 0x20;
+        inline constexpr std::ptrdiff_t CollisionResult_HitBodyInfo = 0x40;
+        inline constexpr std::ptrdiff_t BodyInfo_BodyId = 0x00;
+        inline constexpr std::ptrdiff_t BodyInfo_MaterialId = 0x04;
+        inline constexpr std::ptrdiff_t BodyInfo_ShapeKey = 0x08;
+        inline constexpr std::ptrdiff_t BodyInfo_CollisionFilterInfo = 0x0C;
+        inline constexpr std::ptrdiff_t BodyInfo_UserData = 0x10;
+
+        inline constexpr std::size_t CollectorBaseSize = 0x20;
+        inline constexpr std::ptrdiff_t Collector_Hints = 0x08;
+        inline constexpr std::ptrdiff_t Collector_EarlyOutThreshold = 0x10;
+
+        inline constexpr std::size_t ShapeCastQuerySize = 0x80;
+        inline constexpr std::ptrdiff_t ShapeCast_Filter = 0x00;
+        inline constexpr std::ptrdiff_t ShapeCast_CollisionFilterInfo = 0x0C;
+        inline constexpr std::ptrdiff_t ShapeCast_Shape = 0x20;
+        inline constexpr std::ptrdiff_t ShapeCast_Start = 0x30;
+        inline constexpr std::ptrdiff_t ShapeCast_Displacement = 0x40;
+        inline constexpr std::ptrdiff_t ShapeCast_InverseDisplacementAndSign = 0x50;
+        inline constexpr std::ptrdiff_t ShapeCast_Tolerance = 0x60;
+        inline constexpr std::uint16_t AnyMaterialId = 0xFFFF;
+        inline constexpr std::uint32_t PositiveSignMaskBase = 0x3F000000;
+        inline constexpr float ShapeCastTolerance = 0.001f;
+        inline constexpr std::size_t MaximumCollectedHits = 16;
+    }
 }
