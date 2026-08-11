@@ -4,6 +4,7 @@
 #include <RPS/Runtime/CollisionFilter.h>
 #include <RPS/Runtime/Constraint.h>
 #include <RPS/Runtime/GeneratedBody.h>
+#include <RPS/Runtime/HookPatch.h>
 #include <RPS/Runtime/PhysicsTypes.h>
 #include <RPS/Runtime/Shape.h>
 
@@ -16,11 +17,12 @@ int main()
     const RPS::Runtime::Physics::PositionMotorTuning motor{};
     const RPS::Runtime::Animation::MotorControlSettings animationMotor{};
     const RPS::Runtime::Animation::HkQsTransform animationTransform{};
+    const RPS::Runtime::Hooks::DirectCallPatch hookPatch{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
     return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
                    childTransform.finite() && RPS::Runtime::Physics::validPositionMotorTuning(motor) &&
                    RPS::Runtime::Animation::sanitizeMotorControlSettings(animationMotor).forceKeyframedControls &&
-                   animationTransform.finite() && retirement == 7 ?
+                   animationTransform.finite() && hookPatch.callsite == 0 && retirement == 7 ?
         0 :
         1;
 }

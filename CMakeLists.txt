@@ -30,6 +30,7 @@ add_library(RPSRuntime STATIC
   src/GeneratedBody.cpp
   src/GeneratorOutput.cpp
   src/HavokAllocator.cpp
+  src/HookPatch.cpp
   src/Memory.cpp
   src/NativeReference.cpp
   src/PhysicsApi.cpp
@@ -105,6 +106,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSAnimationControlTests tests/AnimationControlTests.cpp)
   target_link_libraries(RPSAnimationControlTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSHookPatchTests tests/HookPatchTests.cpp)
+  target_link_libraries(RPSHookPatchTests PRIVATE RPS::Runtime)
+
   foreach(target IN ITEMS
       RPSAddressCatalogTests
       RPSGeneratorOutputTests
@@ -115,7 +119,8 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSShapeTests
       RPSGeneratedBodyTests
       RPSConstraintTests
-      RPSAnimationControlTests)
+      RPSAnimationControlTests
+      RPSHookPatchTests)
     target_compile_features(${target} PRIVATE cxx_std_23)
     target_compile_options(${target} PRIVATE /utf-8 /permissive- /Zc:__cplusplus /W4)
     add_test(NAME ${target} COMMAND ${target})
@@ -156,6 +161,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/AnimationSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSHookPatchSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/HookPatchSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(
