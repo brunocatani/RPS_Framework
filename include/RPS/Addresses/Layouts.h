@@ -326,4 +326,16 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t NiAVObject_UpdateWorldBoundVtableIndex = 0x36;
         inline constexpr std::size_t NiAVObject_MinimumReadableSize = sizeof(std::uintptr_t);
     }
+
+    namespace Audio
+    {
+        inline constexpr std::size_t SoundHandleSize = 0x08;
+        inline constexpr std::ptrdiff_t SoundHandle_Id = 0x00;
+        inline constexpr std::ptrdiff_t SoundHandle_AssumeSuccess = 0x04;
+        inline constexpr std::ptrdiff_t SoundHandle_State = 0x05;
+        inline constexpr std::uint32_t InvalidSoundId = 0xFFFFFFFF;
+        inline constexpr std::size_t AudioManager_MinimumReadableSize = sizeof(std::uintptr_t);
+        inline constexpr std::size_t Descriptor_MinimumReadableSize = sizeof(std::uintptr_t);
+        inline constexpr std::size_t SceneObject_MinimumReadableSize = sizeof(std::uintptr_t);
+    }
 }

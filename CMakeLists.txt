@@ -25,6 +25,7 @@ add_library(RPSRuntime STATIC
   src/ActorState.cpp
   src/AnimationMotor.cpp
   src/AnimationPose.cpp
+  src/Audio.cpp
   src/BodyAccess.cpp
   src/BodyGravity.cpp
   src/CharacterController.cpp
@@ -114,6 +115,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSActorStateTests tests/ActorStateTests.cpp)
   target_link_libraries(RPSActorStateTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSAudioTests tests/AudioTests.cpp)
+  target_link_libraries(RPSAudioTests PRIVATE RPS::Runtime)
+
   add_executable(RPSPhysicsPolicyTests tests/PhysicsPolicyTests.cpp)
   target_link_libraries(RPSPhysicsPolicyTests PRIVATE RPS::Runtime)
 
@@ -163,6 +167,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSBodyGravityTests
       RPSCharacterControllerTests
       RPSActorStateTests
+      RPSAudioTests
       RPSPhysicsPolicyTests
       RPSMovementControllerTests
       RPSScenePhysicsTests
@@ -333,6 +338,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/ActorStateSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSAudioSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/AudioSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

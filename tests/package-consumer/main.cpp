@@ -2,6 +2,7 @@
 #include <RPS/Runtime/ActorState.h>
 #include <RPS/Runtime/AnimationMotor.h>
 #include <RPS/Runtime/AnimationPose.h>
+#include <RPS/Runtime/Audio.h>
 #include <RPS/Runtime/BodyGravity.h>
 #include <RPS/Runtime/CharacterController.h>
 #include <RPS/Runtime/CollisionFilter.h>
@@ -43,6 +44,7 @@ int main()
     const RPS::Runtime::Physics::CollisionBodyResolveResult collisionBody{};
     const RPS::Runtime::Scene::Transform sceneTransform{};
     const auto rootTransform = RPS::Runtime::Animation::identityHkQsTransform();
+    const RPS::Runtime::Audio::NativeSoundHandle soundHandle{};
     const auto retirement = RPS::Runtime::Physics::advanceGeneratedBodyRetirement(8, 1);
     return symbol.rva != 0 && filter.layer() == RPS::Runtime::Collision::RockHandLayer && bodyId.valid() &&
                    childTransform.finite() && RPS::Runtime::Physics::validPositionMotorTuning(motor) &&
@@ -52,7 +54,7 @@ int main()
                    recursiveMotion.preset == RPS::Runtime::Physics::MotionPreset::Dynamic && !gravity.valid &&
                    !movementController.complete() && !intrusiveReference && !characterController.rigidBodyComplete() &&
                    !actorState.actorReadable && collisionPairPolicy.stats().comparisons == 0 && !collisionBody &&
-                   sceneTransform.finite() && rootTransform.finite() && retirement == 7 ?
+                   sceneTransform.finite() && rootTransform.finite() && !soundHandle.active() && retirement == 7 ?
         0 :
         1;
 }

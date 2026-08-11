@@ -231,6 +231,10 @@ RPS_SYMBOL(Render_ResourceOwner, 0x6239340, Data, Rendering, RockAddon)
 
 RPS_SYMBOL(Audio_GetListenerDistanceSquared, 0x1B4F8F0, Function, Audio, RockAddon)
 RPS_SYMBOL(Audio_SetSoundVolume, 0x1B4ADD0, Function, Audio, RockAddon)
+RPS_SYMBOL(Audio_FadeInPlay, 0x1B4B370, Function, Audio, RockAddon)
+RPS_SYMBOL(Audio_FadeOutAndRelease, 0x1B4B3E0, Function, Audio, RockAddon)
+RPS_SYMBOL(Audio_PlayFollowingDescriptor, 0x02C7D70, Function, Audio, RockAddon)
+RPS_SYMBOL(Audio_ManagerSingleton, 0x5B6DB90, Data, Audio, RockAddon)
 RPS_SYMBOL(Audio_MinCollisionSoundVelocity, 0x2CF2530, Data, Audio, Scissors)
 
 RPS_SYMBOL(Interaction_OpenCloseDispatcher, 0x0149840, Function, Runtime, RockAddon)
