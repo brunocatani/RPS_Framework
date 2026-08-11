@@ -2,6 +2,7 @@
 
 #include "RPS/Runtime/Memory.h"
 
+#include <cmath>
 #include <limits>
 
 namespace RPS::Runtime::Animation
@@ -32,9 +33,14 @@ namespace RPS::Runtime::Animation
         }
     }
 
-    TrackView viewTrack(void* generatorOutput, const std::uint32_t trackId, const std::uint16_t minimumElementSize) noexcept
+    TrackView viewTrack(
+        void* generatorOutput,
+        const std::uint32_t trackId,
+        const std::uint16_t minimumElementSize,
+        const TrackAccess access) noexcept
     {
         TrackView result{};
+        result.access = access;
         if (!generatorOutput) {
             return result;
         }
@@ -62,6 +68,13 @@ namespace RPS::Runtime::Animation
             result.status = TrackStatus::InvalidMasterHeader;
             return result;
         }
+        if (access == TrackAccess::MutableStorage &&
+            !Memory::rangeHasAccess(output.tracks, blobBytes, Memory::Access::Write)) {
+            result.status = TrackStatus::ReadOnlyStorage;
+            return result;
+        }
+        result.blobBytes = blobBytes;
+        result.trackCount = trackCount;
         if (trackId >= trackCount) {
             result.status = TrackStatus::MissingTrack;
             return result;
@@ -74,11 +87,13 @@ namespace RPS::Runtime::Animation
             result.status = TrackStatus::InvalidHeader;
             return result;
         }
-        if ((copy.flags & TrackDisabledFlag) != 0 || copy.onFraction <= 0.0f) {
+        if ((copy.flags & TrackDisabledFlag) != 0 ||
+            (access == TrackAccess::ActiveRead && copy.onFraction <= 0.0f)) {
             result.status = TrackStatus::Disabled;
             return result;
         }
         if (copy.capacity <= 0 || copy.numData < 0 || copy.numData > copy.capacity || copy.dataOffset <= 0 ||
+            !std::isfinite(copy.onFraction) ||
             copy.elementSizeBytes < static_cast<std::int16_t>(minimumElementSize)) {
             result.status = TrackStatus::InvalidHeader;
             return result;

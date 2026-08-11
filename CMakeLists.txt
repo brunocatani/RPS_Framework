@@ -22,6 +22,8 @@ add_library(RPS::Addresses ALIAS RPSAddresses)
 set_target_properties(RPSAddresses PROPERTIES EXPORT_NAME Addresses)
 
 add_library(RPSRuntime STATIC
+  src/AnimationMotor.cpp
+  src/AnimationPose.cpp
   src/BodyAccess.cpp
   src/CollisionFilter.cpp
   src/Constraint.cpp
@@ -100,6 +102,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSConstraintTests tests/ConstraintTests.cpp)
   target_link_libraries(RPSConstraintTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSAnimationControlTests tests/AnimationControlTests.cpp)
+  target_link_libraries(RPSAnimationControlTests PRIVATE RPS::Runtime)
+
   foreach(target IN ITEMS
       RPSAddressCatalogTests
       RPSGeneratorOutputTests
@@ -109,7 +114,8 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSPhysicsPolicyTests
       RPSShapeTests
       RPSGeneratedBodyTests
-      RPSConstraintTests)
+      RPSConstraintTests
+      RPSAnimationControlTests)
     target_compile_features(${target} PRIVATE cxx_std_23)
     target_compile_options(${target} PRIVATE /utf-8 /permissive- /Zc:__cplusplus /W4)
     add_test(NAME ${target} COMMAND ${target})
@@ -141,6 +147,15 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       -NoProfile
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/ConstraintSourceTests.ps1"
+      -Root "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
+  add_test(
+    NAME RPSAnimationSourceTests
+    COMMAND
+      "${RPS_PWSH_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/AnimationSourceTests.ps1"
       -Root "${CMAKE_CURRENT_SOURCE_DIR}"
   )
   add_test(

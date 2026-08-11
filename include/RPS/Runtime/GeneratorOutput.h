@@ -56,6 +56,14 @@ namespace RPS::Runtime::Animation
         InvalidHeader,
         InvalidRange,
         PaletteRangeInvalid,
+        ReadOnlyStorage,
+    };
+
+    enum class TrackAccess : std::uint8_t
+    {
+        ActiveRead,
+        StorageRead,
+        MutableStorage,
     };
 
     struct TrackView
@@ -64,9 +72,22 @@ namespace RPS::Runtime::Animation
         TrackHeader* header{};
         std::span<std::byte> data{};
         std::span<std::int8_t> indices{};
+        TrackAccess access{ TrackAccess::ActiveRead };
+        std::uint32_t blobBytes{};
+        std::uint32_t trackCount{};
 
         [[nodiscard]] explicit operator bool() const noexcept { return status == TrackStatus::Ready; }
+        [[nodiscard]] bool mutableStorage() const noexcept
+        {
+            return status == TrackStatus::Ready && access == TrackAccess::MutableStorage;
+        }
     };
 
-    [[nodiscard]] TrackView viewTrack(void* generatorOutput, std::uint32_t trackId, std::uint16_t minimumElementSize) noexcept;
+    // Returned pointers/spans are non-owning and valid only for the synchronous
+    // generator callback in which the engine supplied generatorOutput.
+    [[nodiscard]] TrackView viewTrack(
+        void* generatorOutput,
+        std::uint32_t trackId,
+        std::uint16_t minimumElementSize,
+        TrackAccess access = TrackAccess::ActiveRead) noexcept;
 }

@@ -154,6 +154,10 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::size_t GeneratorMasterHeader = 0x10;
         inline constexpr std::size_t GeneratorTrackHeader = 0x10;
         inline constexpr std::size_t HkQsTransform = 0x30;
+        inline constexpr std::size_t KeyframedControlData = 0x30;
+        inline constexpr std::size_t PoweredControlData = 0x14;
+        inline constexpr std::size_t WorldFromModelModeData = 0x08;
+        inline constexpr std::ptrdiff_t WorldFromModelMode_Value = 0x06;
         inline constexpr std::ptrdiff_t GraphDriver_Interface = 0x70;
         inline constexpr std::ptrdiff_t Graph_Driver = 0x208;
         inline constexpr std::ptrdiff_t GraphManager_ActiveGraphIndex = 0xD8;
