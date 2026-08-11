@@ -1,0 +1,51 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "custom-fast",
+      "displayName": "RPS Framework fast auto-deploy build",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "toolset": "v143",
+      "binaryDir": "${sourceDir}/build-fast",
+      "cacheVariables": {
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>",
+        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /external:anglebrackets /external:W0",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": false,
+        "RPS_FRAMEWORK_BUILD_TESTS": true
+      }
+    },
+    {
+      "name": "custom-tests",
+      "inherits": "custom-fast",
+      "displayName": "RPS Framework isolated test tree",
+      "binaryDir": "${sourceDir}/build-tests"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "custom-fast",
+      "configurePreset": "custom-fast",
+      "configuration": "Release"
+    },
+    {
+      "name": "custom-tests",
+      "configurePreset": "custom-tests",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "custom-fast",
+      "configurePreset": "custom-fast",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "custom-tests",
+      "configurePreset": "custom-tests",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
