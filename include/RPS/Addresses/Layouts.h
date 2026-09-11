@@ -329,6 +329,13 @@ namespace RPS::Addresses::Layouts
 
     namespace Scene
     {
+        // FO4VR RE, 2026-09-11: NiNode ctor 0x1C17D30 installs vtable 0x2E57A68.
+        // Slot 0x36 reaches bound merger 0x1C18AB0; slot 0x33 instead reaches
+        // the three-argument downward pass 0x1C18620. PointLight vtable 0x2E58BC8
+        // independently maps slot 0x36 to bound updater 0x1C363F0. Keep the RPS
+        // VR slots below rather than the differing CommonLib NiAVObject slots.
+        // Slot 0x30 reaches 0x1C23380, which also marks ancestors dirty; the
+        // CommonFramework visibility helper only changes the object's cull bit.
         inline constexpr std::size_t NiAVObject_SetMaterialNeedsUpdateVtableIndex = 0x2E;
         inline constexpr std::size_t NiAVObject_SetAppCulledVtableIndex = 0x30;
         inline constexpr std::size_t NiAVObject_UpdateWorldBoundVtableIndex = 0x36;

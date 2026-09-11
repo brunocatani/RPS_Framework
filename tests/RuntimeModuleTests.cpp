@@ -20,7 +20,7 @@ int main()
     }
 
     const auto module = RuntimeModule::detect();
-    if (module.status() == ModuleStatus::Ready || module.resolve(RPS::Addresses::Symbol::Physics_SetBodyVelocity) != 0) {
+    if (module.status() == ModuleStatus::Ready || module.resolve(RPS::Addresses::Symbol::Physics_SetBodyVelocityDeferred) != 0) {
         std::cerr << "non-game executable must fail closed\n";
         return 1;
     }

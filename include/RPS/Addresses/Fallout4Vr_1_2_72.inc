@@ -1,9 +1,11 @@
 // name, RVA, kind, subsystem, source project
 // This file intentionally contains no absolute virtual addresses. Consumers
 // resolve every symbol against the validated Fallout4VR.exe module base.
+// Standalone aliases already exposed by CommonLibF4VR or F4VR-CommonFramework
+// belong to those libraries. Keep local bindings needed by RPS checked operations:
+// identical addresses alone do not imply identical ABI, ownership or failure behavior.
 
 RPS_SYMBOL(Physics_SetBodyCollisionFilterInfo, 0x1DF5B80, Function, Collision, Rock)
-RPS_SYMBOL(Physics_SetBodyVelocity, 0x1539F30, Function, Physics, Rock)
 RPS_SYMBOL(Physics_SetBodyTransformDeferred, 0x1DF55F0, Function, Physics, Rock)
 RPS_SYMBOL(Physics_SetBodyVelocityDeferred, 0x1DF56F0, Function, Physics, Rock)
 RPS_SYMBOL(Physics_SetBodyKeyframed, 0x1DF5CB0, Function, Physics, Rock)
@@ -12,8 +14,6 @@ RPS_SYMBOL(Physics_RebuildMotionMassProperties, 0x1546570, Function, Physics, Ro
 RPS_SYMBOL(Physics_EnableBodyFlags, 0x153C090, Function, Physics, Rock)
 RPS_SYMBOL(Physics_DisableBodyFlags, 0x153C150, Function, Physics, Rock)
 RPS_SYMBOL(Physics_ActivateBody, 0x1546EF0, Function, Physics, Rock)
-RPS_SYMBOL(Physics_SetBodyMotionProperties, 0x153B2F0, Function, Physics, Rock)
-RPS_SYMBOL(Physics_SetBodyMotion, 0x153BAE0, Function, Physics, Rock)
 RPS_SYMBOL(Physics_SetBodyMaterial, 0x153AFC0, Function, Physics, Rock)
 RPS_SYMBOL(Physics_ApplyBodyImpulseAt, 0x1DF5900, Function, Physics, Scissors)
 RPS_SYMBOL(Physics_GetDamageForImpact, 0x06268F0, Function, Physics, Scissors)
@@ -34,7 +34,6 @@ RPS_SYMBOL(Shape_InstanceSetShape, 0x16E1780, Function, Physics, Rock)
 RPS_SYMBOL(Shape_InstanceSetTransform, 0x16E1840, Function, Physics, Rock)
 RPS_SYMBOL(Shape_InstanceSetScale, 0x16E1910, Function, Physics, Rock)
 RPS_SYMBOL(Shape_CreateSphere, 0x15FF4E0, Function, Physics, Rock)
-RPS_SYMBOL(Shape_ConvexPolytopeVtable, 0x2C9A108, Vtable, Physics, Rock)
 
 RPS_SYMBOL(Body_CollisionObjectSetMotionType, 0x1E07300, Function, Physics, Rock)
 RPS_SYMBOL(Body_CollisionObjectCtor, 0x1E07710, Function, Physics, Rock)
@@ -48,29 +47,20 @@ RPS_SYMBOL(Body_MotionCinfoCtor, 0x17A2FC0, Function, Physics, Rock)
 RPS_SYMBOL(Body_MaterialCtor, 0x1536CB0, Function, Physics, Rock)
 RPS_SYMBOL(Body_CollisionObjectLinkObject, 0x2996CB0, Function, Scene, Rock)
 RPS_SYMBOL(Body_CollisionObjectDriveToKeyFrame, 0x1E086E0, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectSetTransform, 0x1E08A70, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectSetVelocity, 0x1E082A0, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectSetLinearVelocity, 0x1E08050, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectSetAngularVelocity, 0x1E08170, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectApplyLinearImpulse, 0x1E08520, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectApplyPointImpulse, 0x1E08640, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectSetMass, 0x1E08C00, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectGetFilterInfo, 0x1E08D60, Function, Collision, Rock)
-RPS_SYMBOL(Body_CollisionObjectGetCenterOfMassWorld, 0x1E08EF0, Function, Physics, Rock)
-RPS_SYMBOL(Body_CollisionObjectGetShape, 0x1E07F30, Function, Physics, Rock)
 RPS_SYMBOL(Body_IsConstrained, 0x1E09170, Function, Constraint, Rock)
 
 RPS_SYMBOL(World_AddPhysicsSystem, 0x1DFAC30, Function, Physics, Rock)
 RPS_SYMBOL(World_RemovePhysicsSystemInstance, 0x1DFAD00, Function, Physics, Rock)
+// FO4VR RE, 2026-09-11: these are scene-root functions, not bhkWorld members.
+// 0x1DF95B0 reads root in RCX, preset in EDX and returns success in AL;
+// 0x1DF9940 reads root in RCX, enable in DL and also returns success in AL.
+// Caller 0x0F0AC60 passes the same scene root to both, and 0x1DFA2B0 walks
+// that root's children. CommonLib's bhkWorld methods insert an extra `this`;
+// CommonFramework's free SetMotion binding discards AL. Preserve the RPS ABI.
 RPS_SYMBOL(World_SetMotionRecursive, 0x1DF95B0, Function, Physics, Rock)
 RPS_SYMBOL(World_EnableCollisionRecursive, 0x1DF9940, Function, Collision, Rock)
 RPS_SYMBOL(World_PickObject, 0x1DF8D60, Function, Physics, Rock)
 RPS_SYMBOL(World_CastShape, 0x15A6C00, Function, Physics, Rock)
-RPS_SYMBOL(World_AddStepListener, 0x1DFA7B0, Function, Physics, Rock)
-RPS_SYMBOL(World_CastRay, 0x15A6B10, Function, Physics, Rock)
-RPS_SYMBOL(World_GetClosestPoints, 0x15A6DF0, Function, Physics, Rock)
-RPS_SYMBOL(World_QueryAabb, 0x15A64B0, Function, Physics, Rock)
-RPS_SYMBOL(World_QueryAabbBroadphaseOnly, 0x15A6330, Function, Physics, Rock)
 RPS_SYMBOL(World_MarkForWrite, 0x1DF5FB0, Function, Physics, Scissors)
 RPS_SYMBOL(World_UnmarkForWrite, 0x1DF5FD0, Function, Physics, Scissors)
 RPS_SYMBOL(World_LockForRead, 0x1B932B0, Function, Physics, Rock)
@@ -104,7 +94,6 @@ RPS_SYMBOL(Scene_NiNodeCtor, 0x1C17D30, Function, Scene, Rock)
 RPS_SYMBOL(Scene_NiNodeDtor, 0x1C17DD0, Function, Scene, Rock)
 RPS_SYMBOL(Scene_NiNodeSetName, 0x1C16C30, Function, Scene, Rock)
 RPS_SYMBOL(Scene_BSFixedStringCreate, 0x1BC1650, Function, Scene, Rock)
-RPS_SYMBOL(Scene_NiNodeVtable, 0x2E57A68, Vtable, Scene, Rock)
 RPS_SYMBOL(Scene_ApplyOmodModelCustomization, 0x00053CD0, Function, Scene, Rock)
 RPS_SYMBOL(Scene_PointLightCreate, 0x1C27DB0, Function, Scene, RockAddon)
 RPS_SYMBOL(Scene_PointLightRegister, 0x27E9C30, Function, Scene, RockAddon)
@@ -127,7 +116,6 @@ RPS_SYMBOL(Constraint_PrismaticSetInWorldSpace, 0x19B1520, Function, Constraint,
 RPS_SYMBOL(Constraint_PositionMotorVtable, 0x2E95FE8, Vtable, Constraint, Rock)
 RPS_SYMBOL(Constraint_Create, 0x15469B0, Function, Constraint, Rock)
 RPS_SYMBOL(Constraint_Destroy, 0x1546B40, Function, Constraint, Rock)
-RPS_SYMBOL(Constraint_RagdollDataVtable, 0x2E18298, Vtable, Constraint, Rock)
 RPS_SYMBOL(Constraint_Update, 0x17B74B0, Function, Constraint, Scissors)
 
 RPS_SYMBOL(Contact_SubscribeEvent, 0x003B9E50, Function, Collision, Rock)
@@ -136,7 +124,6 @@ RPS_SYMBOL(Contact_ExtractSignalPoints, 0x175C650, Function, Collision, Rock)
 RPS_SYMBOL(Collision_FilterSingleton, 0x59429B8, Data, Collision, Rock)
 RPS_SYMBOL(Collision_CompareFilterInfo, 0x1E115B0, Function, Collision, Scissors)
 
-RPS_SYMBOL(Animation_PlayerControlsDoAction, 0x0FC07E0, Function, Animation, Paper)
 RPS_SYMBOL(Animation_AutomaticReloadProducer, 0x0FC0D18, HookSite, Animation, Paper)
 RPS_SYMBOL(Animation_AutomaticReloadCallsite, 0x0FC0D4F, Callsite, Animation, Paper)
 RPS_SYMBOL(Animation_ReadyWeaponShouldHandle, 0x0FCE650, Function, Animation, Paper)
@@ -162,14 +149,9 @@ RPS_SYMBOL(Animation_IsHkxDerivativeData, 0x152C0D0, Function, Animation, Paper)
 RPS_SYMBOL(Animation_RetrieveBinding, 0x17865C0, Function, Animation, Paper)
 RPS_SYMBOL(Animation_FindBoneWithName, 0x190A580, Function, Animation, Paper)
 RPS_SYMBOL(Animation_FileLookupSingleton, 0x5B64318, Data, Animation, Paper)
-RPS_SYMBOL(Animation_GraphManagerVtable, 0x2E00550, Vtable, Animation, Paper)
-RPS_SYMBOL(Animation_ClipGeneratorVtable, 0x2E0FB38, Vtable, Animation, Paper)
 RPS_SYMBOL(Animation_ClipGeneratorActivate, 0x192CA40, Function, Animation, Paper)
 RPS_SYMBOL(Animation_ClipGeneratorUpdate, 0x192D0D0, Function, Animation, Paper)
 RPS_SYMBOL(Animation_ClipGeneratorDeactivate, 0x192D510, Function, Animation, Paper)
-RPS_SYMBOL(Animation_BehaviorGraphVtable, 0x2E04848, Vtable, Animation, Paper)
-RPS_SYMBOL(Animation_GraphVtable, 0x2E00A48, Vtable, Animation, Paper)
-RPS_SYMBOL(Animation_GetCurrentWeapon, 0x0E50DA0, Function, Animation, PaperToolkit)
 RPS_SYMBOL(Animation_EjectShellCasing, 0x0330C80, Function, Animation, PaperToolkit)
 
 RPS_SYMBOL(Ragdoll_HasRagdoll, 0x01F1EB0, Function, Ragdoll, Scissors)
@@ -216,14 +198,9 @@ RPS_SYMBOL(Character_ActorQueryDirectMovementState, 0x0E00940, Function, Charact
 RPS_SYMBOL(Character_ActorQueryDirectMovementTargetOffset, 0x0E009B0, Function, Character, Scissors)
 RPS_SYMBOL(Character_ActorQueryDirectMovementTargetAngle, 0x0E00AB0, Function, Character, Scissors)
 
-RPS_SYMBOL(Runtime_MainLoopHookSite, 0x0D8405E, HookSite, Runtime, Rock)
-RPS_SYMBOL(Runtime_LateCullingHookSite, 0x0D84EE4, HookSite, Rendering, RockAddon)
 RPS_SYMBOL(Runtime_PlayerSingleton, 0x5A38518, Data, Runtime, Rock)
 RPS_SYMBOL(Runtime_QueueEquippedWeaponAttach, 0x0DAB8F0, Function, Runtime, Rock)
-RPS_SYMBOL(Runtime_EquippedWeaponAttachManager, 0x5B279E0, Data, Runtime, Rock)
 
-RPS_SYMBOL(Render_PrimaryDrawCallsite, 0x0D844BC, Callsite, Rendering, RockAddon)
-RPS_SYMBOL(Render_PrimaryDrawTarget, 0x0D831F0, Function, Rendering, RockAddon)
 RPS_SYMBOL(Render_CubeCtor, 0x28988F0, Function, Rendering, RockAddon)
 RPS_SYMBOL(Render_CubeDtor, 0x2898B40, Function, Rendering, RockAddon)
 RPS_SYMBOL(Render_CubeAdd, 0x07D4C40, Function, Rendering, RockAddon)
@@ -234,7 +211,6 @@ RPS_SYMBOL(Render_StereoSubmitCallsiteA, 0x1D8DB22, Callsite, Rendering, RockAdd
 RPS_SYMBOL(Render_StereoSubmitCallsiteB, 0x1D8DC25, Callsite, Rendering, RockAddon)
 RPS_SYMBOL(Render_ActiveRenderer, 0x6235AC8, Data, Rendering, RockAddon)
 RPS_SYMBOL(Render_FallbackRenderer, 0x6235AC0, Data, Rendering, RockAddon)
-RPS_SYMBOL(Render_TargetManager, 0x38AC010, Data, Rendering, RockAddon)
 RPS_SYMBOL(Render_TargetHighWater, 0x6235AF8, Data, Rendering, RockAddon)
 RPS_SYMBOL(Render_ResourceOwner, 0x6239340, Data, Rendering, RockAddon)
 

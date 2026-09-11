@@ -204,7 +204,7 @@ int main()
     const auto invalidModule = RuntimeModule::detect();
     if (inspectExecutableSite(
             invalidModule,
-            RPS::Addresses::Symbol::Physics_SetBodyVelocity,
+            RPS::Addresses::Symbol::Physics_SetBodyVelocityDeferred,
             BytePattern{ patternBytes }).status != SiteStatus::InvalidRuntime) {
         std::cerr << "invalid runtime executable-site gate did not fail closed\n";
         return 1;

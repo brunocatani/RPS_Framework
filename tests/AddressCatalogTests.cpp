@@ -28,8 +28,8 @@ int main()
         }
     }
 
-    const auto& velocity = record(Symbol::Physics_SetBodyVelocity);
-    if (velocity.rva != 0x1539F30 || velocity.kind != SymbolKind::Function ||
+    const auto& velocity = record(Symbol::Physics_SetBodyVelocityDeferred);
+    if (velocity.rva != 0x1DF56F0 || velocity.kind != SymbolKind::Function ||
         velocity.subsystem != Subsystem::Physics || velocity.source != SourceProject::Rock) {
         std::cerr << "known physics symbol contract failed\n";
         return 1;
