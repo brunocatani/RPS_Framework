@@ -35,27 +35,18 @@ target_link_libraries(MyFo4VrPlugin PRIVATE RPS::Runtime)
 
 ROCK's Power Armor interaction API is published by
 [RPS SDK](https://github.com/brunocatani/RPS_SDK/tree/main/SDK/ROCK).
-A framework consumer can add its header-only `RPS::ROCK` target while keeping
-`RPS::Runtime` for native operations the consumer owns:
+A framework consumer links explicit SDK families alongside `RPS::Runtime` for native operations it owns:
 
 ```cmake
 find_package(RPSFramework CONFIG REQUIRED)
 find_package(RPS_SDK CONFIG REQUIRED)
-target_link_libraries(MyFo4VrPlugin PRIVATE RPS::Runtime RPS::ROCK)
+target_link_libraries(MyFo4VrPlugin PRIVATE
+    RPS::Runtime RPS::ROCKCore RPS::ROCKReferences RPS::ROCKGrab)
 ```
 
-Include `ROCKProviderApi.h`, discover `ROCK.dll` with
-`RockProviderApi::initialize(ROCK_PROVIDER_API_VERSION,
-ROCK_PROVIDER_API_V1_POWER_ARMOR_TABLE_BYTES)`, and check its result before
-registering the consumer. The current V1 provider table is 99 pointers / 792
-bytes on x64. This is independent of the framework's CMake package version.
+Include `ROCK/Client.h`, `ROCK/References.h` and `ROCK/Grab.h`. Resolve `ROCKAPI_QueryInterfaceV1`, register a Core owner and bind References Read plus Grab Read/Write. Add Core Callbacks for scheduled provider work. There is no combined provider table or global capability mask in current ROCK; each family negotiates its own major/minor/extent.
 
-Use `TargetDetails` for either-hand target details and native reference-state
-queries, `PowerArmor` for PA classification, linked-frame identity and animated
-armor-hand poses, and `PowerArmor` plus `InteractionCommands` for a specific-point
-grab. Request `FrameSnapshots` for owner callbacks, inspect granted capabilities,
-and perform live queries at that boundary. Native framework access does not grant
-ROCK consumer permissions or substitute for those callbacks.
+References owns native-reference/PA classification and copied armor-hand poses. Grab owns either-hand target details, PA command admission, result observation, cancellation and release. Native framework access grants no ROCK owner permission or live-query thread exemption. FRIK API 2.3 and the static framework package version are separate from ROCK interface versions.
 
 Keep the world/skeleton/provider generations current; check classification flags
 and each pose's validity. The queried actor and linked frame are distinct
@@ -63,7 +54,7 @@ references, and armor-side names are independent of the player's selected hand.
 Command admission is asynchronous. Poll terminal results, observe native grip
 release through live hand details, and cancel/release/unregister on teardown.
 
-The [Power Armor contract](https://github.com/brunocatani/RPS_SDK/blob/main/SDK/ROCK/docs/FeatureGuide.md#power-armor-and-reference-details)
+The [Power Armor contract](https://github.com/brunocatani/RPS_SDK/blob/main/SDK/ROCK/docs/modular/PowerArmor.md)
 and [buildable consumer](https://github.com/brunocatani/RPS_SDK/blob/main/SDK/ROCK/examples/mods/PowerArmorInteraction.cpp)
 own the complete integration recipe. These additions introduce no new framework
 address or native Power Armor wrapper; ROCK retains attachment and presentation
