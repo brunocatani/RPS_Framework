@@ -30,9 +30,6 @@ execute_process(
     "${CMAKE_COMMAND}"
     --build "${_consumer_binary}"
     --config Release
-    --
-    /m:1
-    /p:CL_MPCount=2
   RESULT_VARIABLE _build_result
   OUTPUT_VARIABLE _build_output
   ERROR_VARIABLE _build_error
