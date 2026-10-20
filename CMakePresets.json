@@ -14,23 +14,12 @@
         "CMAKE_INTERPROCEDURAL_OPTIMIZATION": false,
         "RPS_FRAMEWORK_BUILD_TESTS": true
       }
-    },
-    {
-      "name": "custom-tests",
-      "inherits": "custom-fast",
-      "displayName": "RPS Framework isolated test tree",
-      "binaryDir": "${sourceDir}/build-tests"
     }
   ],
   "buildPresets": [
     {
       "name": "custom-fast",
       "configurePreset": "custom-fast",
-      "configuration": "Release"
-    },
-    {
-      "name": "custom-tests",
-      "configurePreset": "custom-tests",
       "configuration": "Release"
     }
   ],
@@ -39,13 +28,9 @@
       "name": "custom-fast",
       "configurePreset": "custom-fast",
       "configuration": "Release",
-      "output": { "outputOnFailure": true }
-    },
-    {
-      "name": "custom-tests",
-      "configurePreset": "custom-tests",
-      "configuration": "Release",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }
