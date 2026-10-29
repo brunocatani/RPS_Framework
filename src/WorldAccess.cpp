@@ -6,6 +6,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#include <intrin.h>
 
 namespace RPS::Runtime::Physics
 {
@@ -32,19 +33,27 @@ namespace RPS::Runtime::Physics
         }
     }
 
-    PhysicsStepState currentThreadPhysicsStepState(const RuntimeModule& module) noexcept
+    std::uintptr_t currentThreadExecutableTlsBlock(const RuntimeModule& module) noexcept
     {
         if (!module) {
-            return PhysicsStepState::Unknown;
+            return 0;
         }
-
         std::uint32_t tlsIndex{};
         const auto indexAddress = module.resolve(Addresses::Symbol::Memory_BethesdaTlsIndex);
         if (indexAddress == 0 || !Memory::read(reinterpret_cast<const void*>(indexAddress), tlsIndex)) {
-            return PhysicsStepState::Unknown;
+            return 0;
         }
+        const auto* tlsArray = reinterpret_cast<const std::uintptr_t*>(__readgsqword(0x58));
+        std::uintptr_t block{};
+        if (!tlsArray || !Memory::read(tlsArray + tlsIndex, block)) {
+            return 0;
+        }
+        return block;
+    }
 
-        const auto tlsBase = reinterpret_cast<std::uintptr_t>(TlsGetValue(tlsIndex));
+    PhysicsStepState currentThreadPhysicsStepState(const RuntimeModule& module) noexcept
+    {
+        const auto tlsBase = currentThreadExecutableTlsBlock(module);
         std::uint8_t flag{};
         if (tlsBase == 0 ||
             !Memory::read(

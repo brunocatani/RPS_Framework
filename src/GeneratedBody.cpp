@@ -5,6 +5,7 @@
 #include "RPS/Runtime/HavokAllocator.h"
 #include "RPS/Runtime/Memory.h"
 #include "RPS/Runtime/NativeReference.h"
+#include "RPS/Runtime/WorldAccess.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -131,12 +132,7 @@ namespace RPS::Runtime::Physics
                 if (!module) {
                     return;
                 }
-                std::uint32_t tlsIndex{};
-                const auto indexAddress = module.resolve(Addresses::Symbol::Memory_BethesdaTlsIndex);
-                if (indexAddress == 0 || !Memory::read(reinterpret_cast<const void*>(indexAddress), tlsIndex)) {
-                    return;
-                }
-                const auto tlsBlock = reinterpret_cast<std::uintptr_t>(TlsGetValue(tlsIndex));
+                const auto tlsBlock = Physics::currentThreadExecutableTlsBlock(module);
                 if (tlsBlock == 0) {
                     return;
                 }

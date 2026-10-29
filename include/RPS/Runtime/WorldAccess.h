@@ -27,6 +27,14 @@ namespace RPS::Runtime::Physics
         WriteMarked,
     };
 
+    /*
+     * This thread's block of the executable's implicit (static) TLS, which
+     * holds Bethesda per-thread state such as the physics-step flag and the
+     * allocator context. The loader keeps it in the thread's TLS array
+     * (gs:[0x58]) at the executable's _tls_index. It is not a TlsAlloc slot:
+     * TlsGetValue with that index reads an unrelated slot. 0 when unavailable.
+     */
+    [[nodiscard]] std::uintptr_t currentThreadExecutableTlsBlock(const RuntimeModule& module) noexcept;
     [[nodiscard]] PhysicsStepState currentThreadPhysicsStepState(const RuntimeModule& module) noexcept;
     [[nodiscard]] bool currentThreadInsidePhysicsStep(const RuntimeModule& module) noexcept;
 
