@@ -206,6 +206,37 @@ namespace RPS::Runtime::Physics
                 return own(ConstraintApi{ _module, world }.createPrismatic(guard, info), self);
             }
 
+            [[nodiscard]] OwnedConstraintCreateResult createAdjustablePrismatic(
+                const WorldWriteGuard& guard,
+                const PrismaticConstraintInfo& info,
+                const std::shared_ptr<ConstraintState>& self) noexcept
+            {
+                if (!onOwnerThread()) {
+                    return { {}, ConstraintError::WrongThread };
+                }
+                void* const world = currentWorld();
+                if (!_module || !world) {
+                    return { {}, ConstraintError::InvalidRuntime };
+                }
+                void* data{};
+                const auto result = ConstraintApi{ _module, world }.createPrismatic(guard, info, &data);
+                if (!result) {
+                    return { {}, result.error };
+                }
+                return { OwnedConstraint{ self, result.id, data }, ConstraintError::None };
+            }
+
+            [[nodiscard]] bool setPrismaticLimits(
+                const WorldWriteGuard& guard,
+                const OwnedConstraint& constraint,
+                const float minimum,
+                const float maximum) const noexcept
+            {
+                void* const world = currentWorld();
+                return onOwnerThread() && constraint.valid() && constraint._state.get() == this && world &&
+                       guard.owns(world) && ConstraintApi::setPrismaticLimits(guard, constraint._data, minimum, maximum);
+            }
+
             [[nodiscard]] bool retire(const WorldWriteGuard& guard, OwnedConstraint& constraint) noexcept
             {
                 if (!onOwnerThread() || !constraint.valid() || constraint._state.get() != this) {
@@ -213,6 +244,7 @@ namespace RPS::Runtime::Physics
                 }
                 void* const world = currentWorld();
                 if (!world) {
+                    releaseData(constraint._data);
                     constraint.clearWithoutDestroy();
                     return true;
                 }
@@ -220,6 +252,7 @@ namespace RPS::Runtime::Physics
                 if (!ConstraintApi{ _module, world }.destroy(guard, id)) {
                     return false;
                 }
+                releaseData(constraint._data);
                 constraint.clearWithoutDestroy();
                 return true;
             }
@@ -232,6 +265,7 @@ namespace RPS::Runtime::Physics
                 {
                     std::scoped_lock lock(_mutex);
                     if (_world && _retirementCount < _retirements.size()) {
+                        _retirementData[_retirementCount] = constraint._data;
                         _retirements[_retirementCount++] = constraint._id;
                     }
                 }
@@ -250,12 +284,14 @@ namespace RPS::Runtime::Physics
                 }
 
                 std::array<ConstraintId, ConstraintRetirementCapacity> pending{};
+                std::array<void*, ConstraintRetirementCapacity> pendingData{};
                 std::size_t pendingCount{};
                 {
                     std::scoped_lock lock(_mutex);
                     pendingCount = _retirementCount;
                     for (std::size_t index = 0; index < pendingCount; ++index) {
                         pending[index] = _retirements[index];
+                        pendingData[index] = std::exchange(_retirementData[index], nullptr);
                         _retirements[index] = {};
                     }
                     _retirementCount = 0;
@@ -264,12 +300,15 @@ namespace RPS::Runtime::Physics
                 ConstraintApi api{ _module, world };
                 std::size_t destroyed{};
                 std::array<ConstraintId, ConstraintRetirementCapacity> failed{};
+                std::array<void*, ConstraintRetirementCapacity> failedData{};
                 std::size_t failedCount{};
                 for (std::size_t index = 0; index < pendingCount; ++index) {
                     auto id = pending[index];
                     if (api.destroy(guard, id)) {
+                        releaseData(pendingData[index]);
                         ++destroyed;
                     } else {
+                        failedData[failedCount] = pendingData[index];
                         failed[failedCount++] = pending[index];
                     }
                 }
@@ -279,6 +318,7 @@ namespace RPS::Runtime::Physics
                     for (std::size_t index = 0;
                          index < failedCount && _retirementCount < _retirements.size();
                          ++index) {
+                        _retirementData[_retirementCount] = failedData[index];
                         _retirements[_retirementCount++] = failed[index];
                     }
                 }
@@ -293,6 +333,8 @@ namespace RPS::Runtime::Physics
                 std::scoped_lock lock(_mutex);
                 const auto discarded = _retirementCount;
                 for (std::size_t index = 0; index < _retirementCount; ++index) {
+                    // The world released its own reference with the world.
+                    releaseData(_retirementData[index]);
                     _retirements[index] = {};
                 }
                 _retirementCount = 0;
@@ -308,6 +350,14 @@ namespace RPS::Runtime::Physics
 
         private:
             [[nodiscard]] bool onOwnerThread() const noexcept { return GetCurrentThreadId() == _ownerThreadId; }
+
+            static void releaseData(void*& data) noexcept
+            {
+                if (data) {
+                    (void)releaseHavokReference(data);
+                    data = nullptr;
+                }
+            }
 
             [[nodiscard]] void* currentWorld() const noexcept
             {
@@ -330,6 +380,7 @@ namespace RPS::Runtime::Physics
             DWORD _ownerThreadId{};
             mutable std::mutex _mutex{};
             std::array<ConstraintId, ConstraintRetirementCapacity> _retirements{};
+            std::array<void*, ConstraintRetirementCapacity> _retirementData{};
             std::size_t _retirementCount{};
         };
     }
@@ -358,8 +409,12 @@ namespace RPS::Runtime::Physics
         const WorldWriteGuard& guard,
         void* const constraintData,
         const BodyId bodyA,
-        const BodyId bodyB) const noexcept
+        const BodyId bodyB,
+        void** const retainedData) const noexcept
     {
+        if (retainedData) {
+            *retainedData = nullptr;
+        }
         const auto bodyError = validateBodies(guard, bodyA, bodyB);
         if (bodyError != ConstraintError::None) {
             if (constraintData) {
@@ -376,8 +431,13 @@ namespace RPS::Runtime::Physics
         std::uint32_t id = InvalidConstraintId.value;
         const bool invoked = function && invokeCreate(function, _world, id, info);
 
-        // A successful world insertion owns its own reference; this always drops the factory reference.
-        (void)releaseHavokReference(constraintData);
+        // A successful world insertion owns its own reference. A retaining
+        // caller takes over the factory reference; otherwise it is dropped.
+        if (invoked && id != InvalidConstraintId.value && retainedData) {
+            *retainedData = constraintData;
+        } else {
+            (void)releaseHavokReference(constraintData);
+        }
         if (!invoked || id == InvalidConstraintId.value) {
             return { {}, ConstraintError::NativeFailure };
         }
@@ -466,6 +526,31 @@ namespace RPS::Runtime::Physics
         const WorldWriteGuard& guard,
         const PrismaticConstraintInfo& info) const noexcept
     {
+        return createPrismatic(guard, info, nullptr);
+    }
+
+    bool ConstraintApi::setPrismaticLimits(
+        const WorldWriteGuard& guard,
+        void* const constraintData,
+        const float minimum,
+        const float maximum) noexcept
+    {
+        if (!guard.active() || !constraintData || !std::isfinite(minimum) || !std::isfinite(maximum) || minimum > maximum) {
+            return false;
+        }
+        auto* const bytes = reinterpret_cast<std::byte*>(constraintData);
+        return Memory::write(bytes + Addresses::Layouts::Constraint::Prismatic_MinimumDistance, minimum) &&
+               Memory::write(bytes + Addresses::Layouts::Constraint::Prismatic_MaximumDistance, maximum);
+    }
+
+    ConstraintCreateResult ConstraintApi::createPrismatic(
+        const WorldWriteGuard& guard,
+        const PrismaticConstraintInfo& info,
+        void** const retainedData) const noexcept
+    {
+        if (retainedData) {
+            *retainedData = nullptr;
+        }
         const auto bodyError = validateBodies(guard, info.bodyA, info.bodyB);
         if (bodyError != ConstraintError::None) {
             return { {}, bodyError };
@@ -510,7 +595,7 @@ namespace RPS::Runtime::Physics
             (void)releaseHavokReference(data);
             return { {}, ConstraintError::NativeFailure };
         }
-        return create(guard, data, info.bodyA, info.bodyB);
+        return create(guard, data, info.bodyA, info.bodyB, retainedData);
     }
 
     bool ConstraintApi::destroy(const WorldWriteGuard& guard, ConstraintId& id) const noexcept
@@ -533,7 +618,8 @@ namespace RPS::Runtime::Physics
     }
 
     OwnedConstraint::OwnedConstraint(OwnedConstraint&& other) noexcept :
-        _state(std::move(other._state)), _id(std::exchange(other._id, ConstraintId{}))
+        _state(std::move(other._state)), _id(std::exchange(other._id, ConstraintId{})),
+        _data(std::exchange(other._data, nullptr))
     {}
 
     OwnedConstraint& OwnedConstraint::operator=(OwnedConstraint&& other) noexcept
@@ -542,6 +628,7 @@ namespace RPS::Runtime::Physics
             retireOrQueue();
             _state = std::move(other._state);
             _id = std::exchange(other._id, ConstraintId{});
+            _data = std::exchange(other._data, nullptr);
         }
         return *this;
     }
@@ -558,6 +645,7 @@ namespace RPS::Runtime::Physics
     {
         _state.reset();
         _id = {};
+        _data = nullptr;
     }
 
     ConstraintService::ConstraintService(const RuntimeModule module, void* const hknpWorld) noexcept
@@ -599,6 +687,24 @@ namespace RPS::Runtime::Physics
         return _state ?
                    _state->createPrismatic(guard, info, _state) :
                    OwnedConstraintCreateResult{ {}, ConstraintError::InvalidRuntime };
+    }
+
+    OwnedConstraintCreateResult ConstraintService::createAdjustablePrismatic(
+        const WorldWriteGuard& guard,
+        const PrismaticConstraintInfo& info) noexcept
+    {
+        return _state ?
+                   _state->createAdjustablePrismatic(guard, info, _state) :
+                   OwnedConstraintCreateResult{ {}, ConstraintError::InvalidRuntime };
+    }
+
+    bool ConstraintService::setPrismaticLimits(
+        const WorldWriteGuard& guard,
+        const OwnedConstraint& constraint,
+        const float minimum,
+        const float maximum) noexcept
+    {
+        return _state && _state->setPrismaticLimits(guard, constraint, minimum, maximum);
     }
 
     bool ConstraintService::retire(const WorldWriteGuard& guard, OwnedConstraint& constraint) noexcept

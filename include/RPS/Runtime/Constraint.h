@@ -86,7 +86,23 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] ConstraintCreateResult createPrismatic(
             const WorldWriteGuard& guard,
             const PrismaticConstraintInfo& info) const noexcept;
+        /*
+         * As createPrismatic, but on success *retainedData holds one extra
+         * Havok reference to the world-owned constraint data, so its limits can
+         * change later (setPrismaticLimits). The caller releases it on the
+         * world-owner thread after destroying the constraint.
+         */
+        [[nodiscard]] ConstraintCreateResult createPrismatic(
+            const WorldWriteGuard& guard,
+            const PrismaticConstraintInfo& info,
+            void** retainedData) const noexcept;
         [[nodiscard]] bool destroy(const WorldWriteGuard& guard, ConstraintId& id) const noexcept;
+        // Writes new limits into retained prismatic data; the solver reads them next step.
+        [[nodiscard]] static bool setPrismaticLimits(
+            const WorldWriteGuard& guard,
+            void* constraintData,
+            float minimumRelativeDistanceHavok,
+            float maximumRelativeDistanceHavok) noexcept;
 
     private:
         [[nodiscard]] ConstraintError validateBodies(
@@ -97,7 +113,8 @@ namespace RPS::Runtime::Physics
             const WorldWriteGuard& guard,
             void* constraintData,
             BodyId bodyA,
-            BodyId bodyB) const noexcept;
+            BodyId bodyB,
+            void** retainedData = nullptr) const noexcept;
 
         RuntimeModule _module{};
         void* _world{};
@@ -127,8 +144,8 @@ namespace RPS::Runtime::Physics
         friend class ConstraintService;
         friend class Detail::ConstraintState;
 
-        OwnedConstraint(std::shared_ptr<Detail::ConstraintState> state, ConstraintId id) noexcept :
-            _state(std::move(state)), _id(id)
+        OwnedConstraint(std::shared_ptr<Detail::ConstraintState> state, ConstraintId id, void* data = nullptr) noexcept :
+            _state(std::move(state)), _id(id), _data(data)
         {}
 
         void retireOrQueue() noexcept;
@@ -136,6 +153,8 @@ namespace RPS::Runtime::Physics
 
         std::shared_ptr<Detail::ConstraintState> _state{};
         ConstraintId _id{};
+        // Retained constraint data of an adjustable prismatic; null otherwise.
+        void* _data{};
     };
 
     struct OwnedConstraintCreateResult
@@ -178,6 +197,15 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] OwnedConstraintCreateResult createPrismatic(
             const WorldWriteGuard& guard,
             const PrismaticConstraintInfo& info) noexcept;
+        // A prismatic whose limits setPrismaticLimits can change while it lives.
+        [[nodiscard]] OwnedConstraintCreateResult createAdjustablePrismatic(
+            const WorldWriteGuard& guard,
+            const PrismaticConstraintInfo& info) noexcept;
+        [[nodiscard]] bool setPrismaticLimits(
+            const WorldWriteGuard& guard,
+            const OwnedConstraint& constraint,
+            float minimumRelativeDistanceHavok,
+            float maximumRelativeDistanceHavok) noexcept;
         [[nodiscard]] bool retire(const WorldWriteGuard& guard, OwnedConstraint& constraint) noexcept;
         [[nodiscard]] std::size_t servicePendingRetirements(const WorldWriteGuard& guard) noexcept;
         [[nodiscard]] std::size_t shutdownAfterWorldLoss() noexcept;
