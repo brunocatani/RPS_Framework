@@ -85,9 +85,13 @@ namespace RPS::Runtime::Memory
         return true;
     }
 
+    // The copies rely on structured exception handling alone: a VirtualQuery
+    // per call is a kernel transition that made per-frame engine reads cost
+    // milliseconds. A faulting copy (unmapped, no-access, read-only or guard
+    // page) returns false. Engine pointers never reach thread stack guard pages.
     bool copyFrom(const void* source, void* destination, const std::size_t bytes) noexcept
     {
-        if (!destination || !rangeHasAccess(source, bytes, Access::Read)) {
+        if (!destination || !source || bytes == 0) {
             return false;
         }
 #if defined(_MSC_VER)
@@ -105,7 +109,7 @@ namespace RPS::Runtime::Memory
 
     bool copyTo(void* destination, const void* source, const std::size_t bytes) noexcept
     {
-        if (!source || !rangeHasAccess(destination, bytes, Access::Write)) {
+        if (!source || !destination || bytes == 0) {
             return false;
         }
 #if defined(_MSC_VER)

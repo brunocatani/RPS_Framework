@@ -225,11 +225,12 @@ namespace RPS::Runtime::Physics
             return result;
         }
         result.stage = CollisionBodyResolveStage::CollisionObject;
-        if (!Memory::rangeHasAccess(expectedSceneOwner, 1, Memory::Access::Read)) {
+        // Both are compared by address only, never dereferenced.
+        if (!expectedSceneOwner) {
             result.status = CollisionBodyResolveStatus::MissingSceneOwner;
             return result;
         }
-        if (!Memory::rangeHasAccess(expectedHknpWorld, 1, Memory::Access::Read)) {
+        if (!expectedHknpWorld) {
             result.status = CollisionBodyResolveStatus::MissingExpectedWorld;
             return result;
         }
@@ -293,14 +294,6 @@ namespace RPS::Runtime::Physics
             return result;
         }
 
-        const auto bodyTableBytes = static_cast<std::size_t>(instance.bodyCount) * sizeof(std::uint32_t);
-        if (!Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(instance.bodyIds),
-                bodyTableBytes,
-                Memory::Access::Read)) {
-            result.status = CollisionBodyResolveStatus::UnreadableBodyTable;
-            return result;
-        }
         result.stage = CollisionBodyResolveStage::BodyIndex;
         std::uintptr_t bodyIdAddress{};
         if (!indexedAddress(instance.bodyIds, collision.bodyIndex, sizeof(std::uint32_t), bodyIdAddress) ||
@@ -398,8 +391,6 @@ namespace RPS::Runtime::Physics
             return "missing-body-ids";
         case CollisionBodyResolveStatus::BodyIndexOutOfRange:
             return "body-index-out-of-range";
-        case CollisionBodyResolveStatus::UnreadableBodyTable:
-            return "unreadable-body-table";
         case CollisionBodyResolveStatus::UnreadableBodyId:
             return "unreadable-body-id";
         case CollisionBodyResolveStatus::InvalidBodyId:

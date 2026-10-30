@@ -35,7 +35,6 @@ $requiredContracts = @(
     'collision.ownerNode != reinterpret_cast<std::uintptr_t>(expectedSceneOwner)',
     'instance.world != reinterpret_cast<std::uintptr_t>(expectedHknpWorld)',
     'collision.bodyIndex >= static_cast<std::uint32_t>(instance.bodyCount)',
-    'bodyTableBytes',
     'result.bodyId.value > Havok::MaxReadableBodyIndex',
     'verifiedCollision.ownerNode != collision.ownerNode',
     'verifiedSystem.instance != system.instance',

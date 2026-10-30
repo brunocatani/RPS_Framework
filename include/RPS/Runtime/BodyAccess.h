@@ -80,7 +80,6 @@ namespace RPS::Runtime::Physics
         InvalidBodyCount,
         MissingBodyIds,
         BodyIndexOutOfRange,
-        UnreadableBodyTable,
         UnreadableBodyId,
         InvalidBodyId,
         GenerationChanged,
