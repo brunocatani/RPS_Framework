@@ -237,6 +237,16 @@ namespace RPS::Runtime::Physics
                        guard.owns(world) && ConstraintApi::setPrismaticLimits(guard, constraint._data, minimum, maximum);
             }
 
+            [[nodiscard]] bool setPrismaticFriction(
+                const WorldWriteGuard& guard,
+                const OwnedConstraint& constraint,
+                const float force) const noexcept
+            {
+                void* const world = currentWorld();
+                return onOwnerThread() && constraint.valid() && constraint._state.get() == this && world &&
+                       guard.owns(world) && ConstraintApi::setPrismaticFriction(guard, constraint._data, force);
+            }
+
             [[nodiscard]] bool retire(const WorldWriteGuard& guard, OwnedConstraint& constraint) noexcept
             {
                 if (!onOwnerThread() || !constraint.valid() || constraint._state.get() != this) {
@@ -543,6 +553,18 @@ namespace RPS::Runtime::Physics
                Memory::write(bytes + Addresses::Layouts::Constraint::Prismatic_MaximumDistance, maximum);
     }
 
+    bool ConstraintApi::setPrismaticFriction(
+        const WorldWriteGuard& guard,
+        void* const constraintData,
+        const float force) noexcept
+    {
+        if (!guard.active() || !constraintData || !std::isfinite(force) || force < 0.0f) {
+            return false;
+        }
+        return Memory::write(
+            reinterpret_cast<std::byte*>(constraintData) + Addresses::Layouts::Constraint::Prismatic_FrictionMaximumForce, force);
+    }
+
     ConstraintCreateResult ConstraintApi::createPrismatic(
         const WorldWriteGuard& guard,
         const PrismaticConstraintInfo& info,
@@ -558,7 +580,8 @@ namespace RPS::Runtime::Physics
         if (!info.bodyAWorld.finite() || !info.bodyBWorld.finite() || !info.worldPivot.finite() ||
             !validAxis(info.worldAxis) || !std::isfinite(info.minimumRelativeDistanceHavok) ||
             !std::isfinite(info.maximumRelativeDistanceHavok) ||
-            info.minimumRelativeDistanceHavok > info.maximumRelativeDistanceHavok) {
+            info.minimumRelativeDistanceHavok > info.maximumRelativeDistanceHavok ||
+            !std::isfinite(info.frictionForceHavok) || info.frictionForceHavok < 0.0f) {
             return { {}, ConstraintError::InvalidParameters };
         }
 
@@ -581,8 +604,8 @@ namespace RPS::Runtime::Physics
                                     info.worldAxis) &&
                                 Memory::write(
                                     reinterpret_cast<std::byte*>(data) +
-                                        Addresses::Layouts::Constraint::Prismatic_LimitEnabled,
-                                    std::uint8_t{ 1 }) &&
+                                        Addresses::Layouts::Constraint::Prismatic_FrictionMaximumForce,
+                                    info.frictionForceHavok) &&
                                 Memory::write(
                                     reinterpret_cast<std::byte*>(data) +
                                         Addresses::Layouts::Constraint::Prismatic_MinimumDistance,
@@ -705,6 +728,14 @@ namespace RPS::Runtime::Physics
         const float maximum) noexcept
     {
         return _state && _state->setPrismaticLimits(guard, constraint, minimum, maximum);
+    }
+
+    bool ConstraintService::setPrismaticFriction(
+        const WorldWriteGuard& guard,
+        const OwnedConstraint& constraint,
+        const float force) noexcept
+    {
+        return _state && _state->setPrismaticFriction(guard, constraint, force);
     }
 
     bool ConstraintService::retire(const WorldWriteGuard& guard, OwnedConstraint& constraint) noexcept

@@ -136,8 +136,15 @@ namespace RPS::Addresses::Layouts
         inline constexpr std::ptrdiff_t LimitedHinge_LimitEnabled = 0xFA;
         inline constexpr std::ptrdiff_t LimitedHinge_MinimumAngle = 0xFC;
         inline constexpr std::ptrdiff_t LimitedHinge_MaximumAngle = 0x100;
+        // Prismatic atoms (constructor 0x1419B1350; solver atom switch at
+        // 0x141A556A0, cases 9 and 10): local transforms +0x20, linear motor
+        // +0xB0 (off), linear friction +0xC8 (enabled +0xCA, axis +0xCB = 0,
+        // maximum force +0xCC, skipped while <= 0), angular lock +0xD8, linear
+        // locks +0xE8/+0xF8 (axes 1 and 2), linear limit +0x108 (axis +0x10A
+        // = 0, minimum +0x10C, maximum +0x110; no enable flag, so +0x10A must
+        // stay 0 or the limit moves onto a locked axis).
         inline constexpr std::size_t PrismaticDataSize = 0x120;
-        inline constexpr std::ptrdiff_t Prismatic_LimitEnabled = 0x10A;
+        inline constexpr std::ptrdiff_t Prismatic_FrictionMaximumForce = 0xCC;
         inline constexpr std::ptrdiff_t Prismatic_MinimumDistance = 0x10C;
         inline constexpr std::ptrdiff_t Prismatic_MaximumDistance = 0x110;
         inline constexpr std::size_t PositionMotorSize = 0x30;

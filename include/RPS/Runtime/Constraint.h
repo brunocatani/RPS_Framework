@@ -68,6 +68,9 @@ namespace RPS::Runtime::Physics
         Vector4 worldAxis{};
         float minimumRelativeDistanceHavok{};
         float maximumRelativeDistanceHavok{};
+        // Friction along the slider axis: the most force the solver applies
+        // against sliding (Havok units); 0 slides freely.
+        float frictionForceHavok{};
         BodyId bodyA{};
         BodyId bodyB{};
     };
@@ -103,6 +106,11 @@ namespace RPS::Runtime::Physics
             void* constraintData,
             float minimumRelativeDistanceHavok,
             float maximumRelativeDistanceHavok) noexcept;
+        // Writes a new axial friction force into retained prismatic data.
+        [[nodiscard]] static bool setPrismaticFriction(
+            const WorldWriteGuard& guard,
+            void* constraintData,
+            float frictionForceHavok) noexcept;
 
     private:
         [[nodiscard]] ConstraintError validateBodies(
@@ -206,6 +214,10 @@ namespace RPS::Runtime::Physics
             const OwnedConstraint& constraint,
             float minimumRelativeDistanceHavok,
             float maximumRelativeDistanceHavok) noexcept;
+        [[nodiscard]] bool setPrismaticFriction(
+            const WorldWriteGuard& guard,
+            const OwnedConstraint& constraint,
+            float frictionForceHavok) noexcept;
         [[nodiscard]] bool retire(const WorldWriteGuard& guard, OwnedConstraint& constraint) noexcept;
         [[nodiscard]] std::size_t servicePendingRetirements(const WorldWriteGuard& guard) noexcept;
         [[nodiscard]] std::size_t shutdownAfterWorldLoss() noexcept;
