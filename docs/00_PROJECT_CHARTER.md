@@ -17,7 +17,7 @@ RPS_SDK remains separate. It describes the dynamic provider ABI exported by
 ROCK.dll. RPS Framework describes the FO4VR executable and reusable native
 mechanics. A plugin may consume either or both.
 
-Source authority is current local ROCK/PAPER/PAPER_Toolkit/SCISSORS/add-on code
+Source authority is current local ROCK/PAPER/SCISSORS/add-on code
 and proven in-game behavior. Existing in-code addresses and contracts are
 accepted as verified by explicit user direction. New engine claims still require
 FO4VR binary verification before admission.
@@ -25,7 +25,7 @@ FO4VR binary verification before admission.
 Non-goals:
 
 - moving ROCK hand/grab/weapon policy into a generic library;
-- moving PAPER reload policy or PAPER_Toolkit authoring policy;
+- moving PAPER reload policy;
 - moving SCISSORS active-ragdoll ownership/repair state machines;
 - reproducing F4VR-CommonFramework as a monolith;
 - exposing an unchecked patch-any-address utility.

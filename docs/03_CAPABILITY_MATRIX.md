@@ -81,8 +81,6 @@ state machines whose ownership belongs to their current project.
   collision reaction, visual/IK authority, and contact/cooldown policy.
 - PAPER reload observation/control, Tactical Reload contract, weapon-motion
   intelligence, and ROCK visual-authority coordination.
-- PAPER_Toolkit authoring UI, motion libraries, learning, projection, drive
-  sandbox, and shell-ejection policy.
 - SCISSORS actor-ragdoll and active-ragdoll runtime state machines, controller
   repair, direct stepping, deferred maintenance, and behavioral arbitration.
 - Addon inventory, backpack, scope, camera composition, laser presentation,
