@@ -43,8 +43,7 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] bool invoke(Result& result, const Function function, Arguments... arguments) noexcept
         {
             result = {};
-            if (!function || !Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+            if (!function) {
                 return false;
             }
 #if defined(_MSC_VER)
@@ -64,8 +63,7 @@ namespace RPS::Runtime::Physics
         template <class Function, class... Arguments>
         [[nodiscard]] bool invokeVoid(const Function function, Arguments... arguments) noexcept
         {
-            if (!function || !Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+            if (!function) {
                 return false;
             }
 #if defined(_MSC_VER)
@@ -83,7 +81,8 @@ namespace RPS::Runtime::Physics
 
         [[nodiscard]] bool validEngineObject(const void* const object) noexcept
         {
-            return Memory::rangeHasAccess(object, sizeof(void*), Memory::Access::Read);
+            std::uintptr_t firstWord{};
+            return object && Memory::read(object, firstWord);
         }
 
         [[nodiscard]] bool validDamageSettings(const ImpactDamageSettings& settings) noexcept

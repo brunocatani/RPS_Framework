@@ -108,6 +108,14 @@ namespace RPS::Runtime::Scene
                    (referenceWord & Addresses::Layouts::Bethesda::ReferencedObject_ReferenceCountMask) != 0;
         }
 
+        // One SEH-guarded read proves the object is mapped; a page-protection
+        // query would cost a kernel call on every scene command.
+        [[nodiscard]] bool readableObject(const void* const object) noexcept
+        {
+            std::uintptr_t firstWord{};
+            return object && Memory::read(object, firstWord);
+        }
+
         [[nodiscard]] bool readParent(void* const child, std::uintptr_t& parent) noexcept
         {
             return Memory::read(
@@ -131,10 +139,7 @@ namespace RPS::Runtime::Scene
                 functionAddress == 0) {
                 return false;
             }
-            return Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(functionAddress),
-                1,
-                Memory::Access::Execute);
+            return true;
         }
 
         [[nodiscard]] HierarchyStatus hierarchyExecutionStatus(
@@ -145,16 +150,10 @@ namespace RPS::Runtime::Scene
             if (!module) {
                 return HierarchyStatus::InvalidRuntime;
             }
-            if (!Memory::rangeHasAccess(
-                    parent,
-                    Addresses::Layouts::Scene::NiNode_MinimumReadableSize,
-                    Memory::Access::Read)) {
+            if (!readableObject(parent)) {
                 return HierarchyStatus::InvalidParent;
             }
-            if (!Memory::rangeHasAccess(
-                    child,
-                    Addresses::Layouts::Scene::NiAVObject_MinimumReadableSize,
-                    Memory::Access::Read)) {
+            if (!readableObject(child)) {
                 return HierarchyStatus::InvalidChild;
             }
             if (parent == child) {
@@ -448,10 +447,7 @@ namespace RPS::Runtime::Scene
             result.status = ObjectCommandStatus::InvalidRuntime;
             return false;
         }
-        if (!Memory::rangeHasAccess(
-                _object,
-                Addresses::Layouts::Scene::NiAVObject_MinimumReadableSize,
-                Memory::Access::Read)) {
+        if (!readableObject(_object)) {
             result.status = ObjectCommandStatus::InvalidObject;
             return false;
         }
@@ -480,11 +476,7 @@ namespace RPS::Runtime::Scene
         }
         const auto slotAddress = result.vtableAddress + index * sizeof(void*);
         if (!Memory::read(reinterpret_cast<const void*>(slotAddress), result.functionAddress) ||
-            result.functionAddress == 0 ||
-            !Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(result.functionAddress),
-                1,
-                Memory::Access::Execute)) {
+            result.functionAddress == 0) {
             result.status = ObjectCommandStatus::VtableUnavailable;
             return false;
         }

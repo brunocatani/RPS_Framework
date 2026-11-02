@@ -28,7 +28,6 @@ foreach ($needle in @(
 
 foreach ($needle in @(
     'currentThreadPhysicsStepState',
-    'Memory::Access::Execute',
     'NativeIntrusivePtr::adoptRetained',
     'inspectNativeIntrusiveReference',
     'InvalidRetainedRequest',

@@ -150,11 +150,9 @@ namespace RPS::Runtime::Character
             return result;
         }
         result.actorReadable = true;
+        std::uintptr_t firstWord{};
         if (controller == 0 ||
-            !Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(controller),
-                Layout::Controller_MinimumReadableSize,
-                Memory::Access::Read)) {
+            !Memory::read(reinterpret_cast<const void*>(controller), firstWord)) {
             return result;
         }
 

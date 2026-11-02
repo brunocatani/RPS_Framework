@@ -40,19 +40,13 @@ namespace RPS::Runtime::Animation
             std::size_t boneCount{};
         };
 
-        [[nodiscard]] bool executable(const void* function) noexcept
-        {
-            return Memory::rangeHasAccess(function, 1, Memory::Access::Execute);
-        }
-
         template <class Function>
         [[nodiscard]] Function virtualFunction(void* object, const std::ptrdiff_t slot) noexcept
         {
             std::uintptr_t vtable{};
             std::uintptr_t function{};
             if (!Memory::read(object, vtable) || vtable == 0 ||
-                !Memory::read(reinterpret_cast<const void*>(vtable + slot), function) || function == 0 ||
-                !executable(reinterpret_cast<const void*>(function))) {
+                !Memory::read(reinterpret_cast<const void*>(vtable + slot), function) || function == 0) {
                 return nullptr;
             }
             return reinterpret_cast<Function>(function);
@@ -61,8 +55,9 @@ namespace RPS::Runtime::Animation
         template <class Function>
         [[nodiscard]] Function nativeFunction(const RuntimeModule& module, const Addresses::Symbol symbol) noexcept
         {
-            const auto function = module.resolveFunction<Function>(symbol);
-            return executable(reinterpret_cast<const void*>(function)) ? function : nullptr;
+            // Resolved inside the verified executable image; every call runs
+            // under SEH, so no page-protection query is needed.
+            return module.resolveFunction<Function>(symbol);
         }
 
         [[nodiscard]] bool allFinite(const std::span<const HkQsTransform> transforms) noexcept
@@ -120,8 +115,7 @@ namespace RPS::Runtime::Animation
             if (!Memory::read(
                     reinterpret_cast<const void*>(
                         reinterpret_cast<std::uintptr_t>(driver) + Layout::Driver_RagdollInterface),
-                    result) ||
-                !Memory::rangeHasAccess(result, sizeof(std::uintptr_t), Memory::Access::Read)) {
+                    result)) {
                 return nullptr;
             }
             return result;
@@ -143,7 +137,7 @@ namespace RPS::Runtime::Animation
         [[nodiscard]] SkeletonView skeletonView(const void* driver) noexcept
         {
             SkeletonView result{};
-            if (!Memory::rangeHasAccess(driver, Layout::Driver_RagdollInterface + sizeof(void*), Memory::Access::Read)) {
+            if (!driver) {
                 return result;
             }
             result.ragdollInterface = ragdollInterface(driver);
@@ -159,10 +153,7 @@ namespace RPS::Runtime::Animation
                 return result;
             }
             result.skeleton = invokeGetLowSkeleton(getLowSkeleton, result.ragdollInterface);
-            if (!Memory::rangeHasAccess(
-                    result.skeleton,
-                    Layout::LowSkeleton_MinimumReadableSize,
-                    Memory::Access::Read)) {
+            if (!result.skeleton) {
                 result.status = RootPoseStatus::InvalidSkeleton;
                 return result;
             }
@@ -174,10 +165,7 @@ namespace RPS::Runtime::Animation
                     static_cast<const std::byte*>(result.skeleton) + Layout::LowSkeleton_BoneCount,
                     count) ||
                 count <= 0 || static_cast<std::size_t>(count) > Layout::MaximumLowPoseBoneCount ||
-                !Memory::rangeHasAccess(
-                    result.parentIndices,
-                    static_cast<std::size_t>(count) * sizeof(std::int16_t),
-                    Memory::Access::Read)) {
+                !result.parentIndices) {
                 result.status = RootPoseStatus::InvalidSkeleton;
                 return result;
             }
@@ -334,7 +322,7 @@ namespace RPS::Runtime::Animation
 #else
         bodyHandle = getBodyHandle(skeleton.ragdollInterface, static_cast<int>(boneIndex));
 #endif
-        if (!Memory::rangeHasAccess(bodyHandle, Layout::BodyHandle_MinimumReadableSize, Memory::Access::Read) ||
+        if (!bodyHandle ||
             !Memory::read(
                 static_cast<const std::byte*>(bodyHandle) + Layout::BodyHandle_BodyId,
                 result.bodyId) ||
@@ -343,7 +331,7 @@ namespace RPS::Runtime::Animation
             return result;
         }
         result.bodyHandleAddress = reinterpret_cast<std::uintptr_t>(bodyHandle);
-        if (!Memory::rangeHasAccess(_context, sizeof(std::uintptr_t), Memory::Access::Read)) {
+        if (!_context) {
             result.status = RootPoseStatus::InvalidContext;
             return result;
         }
@@ -365,7 +353,7 @@ namespace RPS::Runtime::Animation
 #else
         physicsInterface = resolvePhysics(_context);
 #endif
-        if (!Memory::rangeHasAccess(physicsInterface, sizeof(std::uintptr_t), Memory::Access::Read)) {
+        if (!physicsInterface) {
             result.status = RootPoseStatus::InvalidContext;
             return result;
         }
@@ -408,7 +396,7 @@ namespace RPS::Runtime::Animation
         __try {
             if (sameSkeleton(skeleton, currentSkeleton)) {
                 currentHandle = getBodyHandle(currentSkeleton.ragdollInterface, static_cast<int>(boneIndex));
-                if (Memory::rangeHasAccess(currentHandle, Layout::BodyHandle_MinimumReadableSize, Memory::Access::Read)) {
+                if (currentHandle) {
                     if (!Memory::read(
                             static_cast<const std::byte*>(currentHandle) + Layout::BodyHandle_BodyId,
                             currentBodyId)) {
@@ -423,7 +411,7 @@ namespace RPS::Runtime::Animation
 #else
         if (sameSkeleton(skeleton, currentSkeleton)) {
             currentHandle = getBodyHandle(currentSkeleton.ragdollInterface, static_cast<int>(boneIndex));
-            if (Memory::rangeHasAccess(currentHandle, Layout::BodyHandle_MinimumReadableSize, Memory::Access::Read)) {
+            if (currentHandle) {
                 if (!Memory::read(
                         static_cast<const std::byte*>(currentHandle) + Layout::BodyHandle_BodyId,
                         currentBodyId)) {

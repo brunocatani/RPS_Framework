@@ -34,7 +34,6 @@ foreach ($needle in @(
     'sameSkeleton',
     'confirmation',
     'GenerationChanged',
-    'Memory::Access::Execute',
     'No pointer is',
     'retained and no world-from-model track is mutated',
     'applyBodyAnchorOffset',

@@ -19,8 +19,9 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] bool readableSceneRoot(void* const sceneRoot) noexcept
         {
             std::uintptr_t vtable{};
+            std::uintptr_t firstVirtual{};
             return Memory::read(sceneRoot, vtable) && vtable != 0 &&
-                   Memory::rangeHasAccess(reinterpret_cast<const void*>(vtable), sizeof(std::uintptr_t), Memory::Access::Read);
+                   Memory::read(reinterpret_cast<const void*>(vtable), firstVirtual);
         }
 
         [[nodiscard]] RecursiveCommandStatus executionContextStatus(const RuntimeModule& module) noexcept

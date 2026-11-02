@@ -88,15 +88,10 @@ namespace RPS::Runtime::Rendering
             const Addresses::Symbol symbol,
             std::uintptr_t& address) noexcept
         {
+            // Resolved inside the verified executable image; every call runs
+            // under SEH, so no page-protection query is needed.
             address = module.resolve(symbol);
-            if (!Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(address),
-                    1,
-                    Memory::Access::Execute)) {
-                address = 0;
-                return nullptr;
-            }
-            return reinterpret_cast<Function>(address);
+            return address != 0 ? reinterpret_cast<Function>(address) : nullptr;
         }
 
         [[nodiscard]] bool resolveManager(const RuntimeModule& module, void*& manager) noexcept
@@ -106,16 +101,8 @@ namespace RPS::Runtime::Rendering
             std::uintptr_t vtable{};
             std::uintptr_t firstVirtual{};
             return Memory::read(reinterpret_cast<const void*>(global), manager) &&
-                   Memory::rangeHasAccess(
-                       manager,
-                       Layout::ManagerMinimumReadableSize,
-                       Memory::Access::Read) &&
                    Memory::read(manager, vtable) && vtable != 0 &&
-                   Memory::read(reinterpret_cast<const void*>(vtable), firstVirtual) && firstVirtual != 0 &&
-                   Memory::rangeHasAccess(
-                       reinterpret_cast<const void*>(firstVirtual),
-                       1,
-                       Memory::Access::Execute);
+                   Memory::read(reinterpret_cast<const void*>(vtable), firstVirtual) && firstVirtual != 0;
         }
 
         [[nodiscard]] bool pointLightIdentityValid(
@@ -124,8 +111,7 @@ namespace RPS::Runtime::Rendering
             std::uintptr_t& observedVtable) noexcept
         {
             observedVtable = 0;
-            return Memory::rangeHasAccess(light, Layout::ObjectSize, Memory::Access::Read) &&
-                   Memory::read(light, observedVtable) &&
+            return Memory::read(light, observedVtable) &&
                    observedVtable == module.resolve(Addresses::Symbol::Scene_PointLightVtable);
         }
 
@@ -133,16 +119,8 @@ namespace RPS::Runtime::Rendering
         {
             std::uintptr_t vtable{};
             std::uintptr_t firstVirtual{};
-            return Memory::rangeHasAccess(
-                       proxy,
-                       Layout::RendererProxyMinimumReadableSize,
-                       Memory::Access::Read) &&
-                   Memory::read(proxy, vtable) && vtable != 0 &&
-                   Memory::read(reinterpret_cast<const void*>(vtable), firstVirtual) && firstVirtual != 0 &&
-                   Memory::rangeHasAccess(
-                       reinterpret_cast<const void*>(firstVirtual),
-                       1,
-                       Memory::Access::Execute);
+            return Memory::read(proxy, vtable) && vtable != 0 &&
+                   Memory::read(reinterpret_cast<const void*>(vtable), firstVirtual) && firstVirtual != 0;
         }
 
         [[nodiscard]] bool hasLiveBethesdaReference(const void* const object) noexcept
@@ -166,26 +144,6 @@ namespace RPS::Runtime::Rendering
                    Memory::read(field(light, Layout::QuadraticAttenuation), output.quadraticAttenuation);
         }
 
-        [[nodiscard]] bool settingsFieldsWritable(void* const light) noexcept
-        {
-            return Memory::rangeHasAccess(field(light, Layout::Ambient), sizeof(Color3), Memory::Access::Write) &&
-                   Memory::rangeHasAccess(field(light, Layout::Diffuse), sizeof(Color3), Memory::Access::Write) &&
-                   Memory::rangeHasAccess(field(light, Layout::Specular), sizeof(Color3), Memory::Access::Write) &&
-                   Memory::rangeHasAccess(field(light, Layout::Dimmer), sizeof(float), Memory::Access::Write) &&
-                   Memory::rangeHasAccess(
-                       field(light, Layout::ConstantAttenuation),
-                       sizeof(float),
-                       Memory::Access::Write) &&
-                   Memory::rangeHasAccess(
-                       field(light, Layout::LinearAttenuation),
-                       sizeof(float),
-                       Memory::Access::Write) &&
-                   Memory::rangeHasAccess(
-                       field(light, Layout::QuadraticAttenuation),
-                       sizeof(float),
-                       Memory::Access::Write);
-        }
-
         [[nodiscard]] bool writeSettings(void* const light, const PointLightFieldSnapshot& values) noexcept
         {
             return Memory::write(field(light, Layout::Ambient), values.ambient) &&
@@ -203,7 +161,7 @@ namespace RPS::Runtime::Rendering
             PointLightCommandResult& result) noexcept
         {
             PointLightFieldSnapshot before{};
-            if (!settingsFieldsWritable(light) || !readSettings(light, before)) {
+            if (!readSettings(light, before)) {
                 return false;
             }
             const PointLightFieldSnapshot desired{
@@ -298,11 +256,7 @@ namespace RPS::Runtime::Rendering
                    Memory::read(
                        reinterpret_cast<const void*>(vtable + index * sizeof(void*)),
                        functionAddress) &&
-                   functionAddress != 0 &&
-                   Memory::rangeHasAccess(
-                       reinterpret_cast<const void*>(functionAddress),
-                       1,
-                       Memory::Access::Execute);
+                   functionAddress != 0;
         }
 
         [[nodiscard]] bool invokeUpdateWorldData(
@@ -549,15 +503,7 @@ namespace RPS::Runtime::Rendering
                 originalLocal) ||
             !Memory::read(
                 field(_light, Addresses::Layouts::Scene::NiAVObject_PreviousWorldTransform),
-                originalPreviousWorld) ||
-            !Memory::rangeHasAccess(
-                field(_light, Addresses::Layouts::Scene::NiAVObject_LocalTransform),
-                sizeof(Scene::Transform),
-                Memory::Access::Write) ||
-            !Memory::rangeHasAccess(
-                field(_light, Addresses::Layouts::Scene::NiAVObject_PreviousWorldTransform),
-                sizeof(Scene::Transform),
-                Memory::Access::Write)) {
+                originalPreviousWorld)) {
             result.status = PointLightStatus::InvalidLight;
             return result;
         }
@@ -661,10 +607,8 @@ namespace RPS::Runtime::Rendering
             result.status = PointLightStatus::InvalidLight;
             return result;
         }
-        if (!Memory::rangeHasAccess(
-                parent,
-                Addresses::Layouts::Scene::NiNode_MinimumReadableSize,
-                Memory::Access::Read)) {
+        std::uintptr_t parentFirstWord{};
+        if (!parent || !Memory::read(parent, parentFirstWord)) {
             result.status = PointLightStatus::InvalidParent;
             return result;
         }

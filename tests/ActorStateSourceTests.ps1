@@ -41,7 +41,6 @@ $requiredContracts = @(
     'using GetKnockStateFunction = std::uint32_t (*)(void*)',
     'using SetKnockStateFunction = bool (*)(void*, std::uint32_t)',
     'resolveActorStateVirtual',
-    'Memory::Access::Execute',
     'currentThreadPhysicsStepState',
     'Layout::MaximumKnockState',
     'Layout::NormalKnockState',

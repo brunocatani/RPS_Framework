@@ -37,17 +37,13 @@ namespace RPS::Runtime::Character
             return true;
         }
 
-        [[nodiscard]] bool inspectExecutableVtable(
+        [[nodiscard]] bool inspectVtable(
             const void* const object,
             std::uintptr_t& vtableAddress) noexcept
         {
             std::uintptr_t firstFunction{};
             return Memory::read(object, vtableAddress) && vtableAddress != 0 &&
-                   Memory::read(reinterpret_cast<const void*>(vtableAddress), firstFunction) && firstFunction != 0 &&
-                   Memory::rangeHasAccess(
-                       reinterpret_cast<const void*>(firstFunction),
-                       1,
-                       Memory::Access::Execute);
+                   Memory::read(reinterpret_cast<const void*>(vtableAddress), firstFunction) && firstFunction != 0;
         }
 
         [[nodiscard]] NativeCallState invokeGetController(
@@ -102,29 +98,25 @@ namespace RPS::Runtime::Character
 
         CharacterControllerSnapshot result{};
         result.controllerAddress = reinterpret_cast<std::uintptr_t>(controller);
-        if (!Memory::rangeHasAccess(
-                controller,
-                Layout::Controller_MinimumReadableSize,
-                Memory::Access::Read)) {
+        std::uintptr_t firstWord{};
+        if (!controller || !Memory::read(controller, firstWord)) {
             return result;
         }
         result.controllerResolved = true;
-        result.vtableReadable = inspectExecutableVtable(controller, result.controllerVtableAddress);
+        result.vtableReadable = inspectVtable(controller, result.controllerVtableAddress);
 
         std::uintptr_t bodyPointerAddress{};
         if (!addOffset(result.controllerAddress, Layout::Controller_RigidBody, bodyPointerAddress) ||
             !Memory::read(reinterpret_cast<const void*>(bodyPointerAddress), result.rigidBodyAddress) ||
-            !Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(result.rigidBodyAddress),
-                Layout::RigidBody_MinimumReadableSize,
-                Memory::Access::Read)) {
+            result.rigidBodyAddress == 0 ||
+            !Memory::read(reinterpret_cast<const void*>(result.rigidBodyAddress), firstWord)) {
             result.rigidBodyAddress = 0;
             return result;
         }
 
         result.rigidBodyResolved = true;
         result.rigidStepGateReadable =
-            inspectExecutableVtable(
+            inspectVtable(
                 reinterpret_cast<const void*>(result.rigidBodyAddress),
                 result.rigidBodyVtableAddress) &&
             Memory::read(
@@ -228,16 +220,9 @@ namespace RPS::Runtime::Character
             return result;
         }
 
-        if (!Memory::rangeHasAccess(
-                bhkWorld,
-                Layout::BhkWorld_MinimumReadableSize,
-                Memory::Access::Read) ||
+        if (!bhkWorld ||
             !addOffset(result.bhkWorldAddress, Layout::BhkWorld_RigidBodyManager, result.managerAddress) ||
-            !Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(result.managerAddress),
-                Layout::RigidBodyManager_MinimumReadableSize,
-                Memory::Access::Read) ||
-            !inspectExecutableVtable(
+            !inspectVtable(
                 reinterpret_cast<const void*>(result.managerAddress),
                 result.managerVtableAddress)) {
             result.status = CharacterControllerStatus::InvalidWorld;

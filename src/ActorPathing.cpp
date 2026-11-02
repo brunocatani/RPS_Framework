@@ -28,13 +28,9 @@ namespace RPS::Runtime::Character
             const RuntimeModule& module,
             const Addresses::Symbol symbol) noexcept
         {
-            const auto function = module.resolveFunction<Function>(symbol);
-            return Memory::rangeHasAccess(
-                       reinterpret_cast<const void*>(function),
-                       1,
-                       Memory::Access::Execute) ?
-                function :
-                nullptr;
+            // Resolved inside the verified executable image; every call runs
+            // under SEH, so no page-protection query is needed.
+            return module.resolveFunction<Function>(symbol);
         }
 
         [[nodiscard]] bool invokeBoolean(
@@ -111,10 +107,8 @@ namespace RPS::Runtime::Character
         if (!_module) {
             return PathingQueryStatus::InvalidRuntime;
         }
-        if (!Memory::rangeHasAccess(
-                _actor,
-                Layout::Actor_MinimumReadableSize,
-                Memory::Access::Read)) {
+        std::uintptr_t actorFirstWord{};
+        if (!_actor || !Memory::read(_actor, actorFirstWord)) {
             return PathingQueryStatus::InvalidActor;
         }
         switch (Physics::currentThreadPhysicsStepState(_module)) {

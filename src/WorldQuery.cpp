@@ -122,8 +122,7 @@ namespace RPS::Runtime::Physics
         template <class Function, class... Arguments>
         [[nodiscard]] bool invokeVoid(const Function function, Arguments... arguments) noexcept
         {
-            if (!function || !Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+            if (!function) {
                 return false;
             }
 #if defined(_MSC_VER)
@@ -143,8 +142,7 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] bool invokeResult(Result& result, const Function function, Arguments... arguments) noexcept
         {
             result = {};
-            if (!function || !Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+            if (!function) {
                 return false;
             }
 #if defined(_MSC_VER)
@@ -234,8 +232,7 @@ namespace RPS::Runtime::Physics
             if (!Memory::read(
                     reinterpret_cast<const std::byte*>(modifierManager) +
                         Addresses::Layouts::Collision::ModifierManager_Filter,
-                    filter) ||
-                !Memory::rangeHasAccess(filter, 1, Memory::Access::Read)) {
+                    filter)) {
                 return nullptr;
             }
             return filter;
@@ -325,7 +322,7 @@ namespace RPS::Runtime::Physics
             result.error = QueryError::InvalidRuntime;
             return result;
         }
-        if (!_bhkWorld || !Memory::rangeHasAccess(_bhkWorld, sizeof(void*), Memory::Access::Read)) {
+        if (!_bhkWorld) {
             result.error = QueryError::InvalidWorld;
             return result;
         }
@@ -429,7 +426,7 @@ namespace RPS::Runtime::Physics
             result.error = QueryError::InvalidRuntime;
             return result;
         }
-        if (!_hknpWorld || !Memory::rangeHasAccess(_hknpWorld, sizeof(void*), Memory::Access::Read)) {
+        if (!_hknpWorld) {
             result.error = QueryError::InvalidWorld;
             return result;
         }
@@ -443,8 +440,7 @@ namespace RPS::Runtime::Physics
         }
 
         Vector4 direction{};
-        if (!request.shape || !Memory::rangeHasAccess(request.shape, sizeof(void*), Memory::Access::Read) ||
-            !request.startGame.finite() || !normalizeQueryDirection(request.directionGame, direction) ||
+        if (!request.shape || !request.startGame.finite() || !normalizeQueryDirection(request.directionGame, direction) ||
             !std::isfinite(request.distanceGame) || request.distanceGame <= 0.001f) {
             result.error = QueryError::InvalidInput;
             return result;

@@ -61,11 +61,9 @@ namespace RPS::Runtime::Physics
         template <class Function>
         [[nodiscard]] Function checkedFunction(const RuntimeModule& module, const Addresses::Symbol symbol) noexcept
         {
-            const auto function = module.resolveFunction<Function>(symbol);
-            return function && Memory::rangeHasAccess(
-                                   reinterpret_cast<const void*>(function), 1, Memory::Access::Execute) ?
-                       function :
-                       nullptr;
+            // Resolved inside the verified executable image; every call runs
+            // under SEH, so no page-protection query is needed.
+            return module.resolveFunction<Function>(symbol);
         }
 
         [[nodiscard]] bool invokeConstructor(const ConstraintDataConstructor function, void* const allocation) noexcept
@@ -794,8 +792,7 @@ namespace RPS::Runtime::Physics
             return {};
         }
         const auto vtable = module.resolve(Addresses::Symbol::Constraint_PositionMotorVtable);
-        if (vtable == 0 || !Memory::rangeHasAccess(
-                               reinterpret_cast<const void*>(vtable), sizeof(void*), Memory::Access::Read)) {
+        if (vtable == 0) {
             return {};
         }
 

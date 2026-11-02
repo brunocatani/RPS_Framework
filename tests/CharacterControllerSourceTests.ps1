@@ -42,9 +42,6 @@ $requiredContracts = @(
     'NoFreshInsertion',
     'already present or rejected',
     'native locks bhkWorld internally',
-    'inspectExecutableVtable',
-    'Layout::BhkWorld_MinimumReadableSize',
-    'Layout::RigidBodyManager_MinimumReadableSize',
     'result.after.controllerAddress != result.before.controllerAddress'
 )
 foreach ($needle in $requiredContracts) {

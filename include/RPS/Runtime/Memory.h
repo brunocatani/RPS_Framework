@@ -12,9 +12,14 @@ namespace RPS::Runtime::Memory
         Execute,
     };
 
+    // Queries page protection with VirtualQuery: a kernel call per region.
+    // For hook installation only. Runtime reads and writes go through the
+    // SEH-guarded helpers below, which fail closed on a fault at no cost
+    // on success.
     [[nodiscard]] bool rangeHasAccess(const void* address, std::size_t bytes, Access access) noexcept;
     [[nodiscard]] bool copyFrom(const void* source, void* destination, std::size_t bytes) noexcept;
     [[nodiscard]] bool copyTo(void* destination, const void* source, std::size_t bytes) noexcept;
+    [[nodiscard]] bool zero(void* destination, std::size_t bytes) noexcept;
 
     template <class T>
         requires std::is_trivially_copyable_v<T>

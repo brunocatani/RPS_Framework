@@ -8,7 +8,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 
 namespace RPS::Runtime::Animation
@@ -73,25 +72,30 @@ namespace RPS::Runtime::Animation
             return track.data.data() + index * static_cast<std::size_t>(track.header->elementSizeBytes);
         }
 
-        void forcePaletteIndexZero(TrackView& track, const float onFraction) noexcept
+        // Track data and palette writes go through SEH-guarded helpers: the
+        // view proves only the header readable, never the whole blob.
+        [[nodiscard]] bool forcePaletteIndexZero(TrackView& track, const float onFraction) noexcept
         {
-            std::fill(track.indices.begin(), track.indices.end(), std::int8_t{});
+            if (!Memory::zero(track.indices.data(), track.indices.size())) {
+                return false;
+            }
             track.header->numData = 1;
             track.header->onFraction = onFraction;
+            return true;
         }
 
         [[nodiscard]] bool writeDefaultKeyframedControl(TrackView& track) noexcept
         {
             KeyframedControlData defaults{};
-            std::memset(track.data.data(), 0, static_cast<std::size_t>(track.header->elementSizeBytes));
-            return Memory::copyTo(track.data.data(), &defaults, sizeof(defaults));
+            return Memory::zero(track.data.data(), static_cast<std::size_t>(track.header->elementSizeBytes)) &&
+                   Memory::copyTo(track.data.data(), &defaults, sizeof(defaults));
         }
 
         [[nodiscard]] bool writeDefaultPoweredControl(TrackView& track) noexcept
         {
             PoweredControlData defaults{};
-            std::memset(track.data.data(), 0, static_cast<std::size_t>(track.header->elementSizeBytes));
-            return Memory::copyTo(track.data.data(), &defaults, sizeof(defaults));
+            return Memory::zero(track.data.data(), static_cast<std::size_t>(track.header->elementSizeBytes)) &&
+                   Memory::copyTo(track.data.data(), &defaults, sizeof(defaults));
         }
 
         [[nodiscard]] bool tuneKeyframedControls(
@@ -154,8 +158,10 @@ namespace RPS::Runtime::Animation
                 track.data.size() < Addresses::Layouts::Animation::WorldFromModelModeData) {
                 return WorldFromModelMode::Unknown;
             }
-            const auto raw = static_cast<std::uint8_t>(
-                track.data[Addresses::Layouts::Animation::WorldFromModelMode_Value]);
+            std::uint8_t raw{};
+            if (!Memory::read(track.data.data() + Addresses::Layouts::Animation::WorldFromModelMode_Value, raw)) {
+                return WorldFromModelMode::Unknown;
+            }
             switch (raw) {
             case static_cast<std::uint8_t>(WorldFromModelMode::UseOld):
                 return WorldFromModelMode::UseOld;
@@ -338,8 +344,8 @@ namespace RPS::Runtime::Animation
             if (result.keyframedTrackUsable) {
                 if (settings.forceKeyframedControls &&
                     (keyframed.header->onFraction <= 0.0f || keyframed.header->numData <= 0) &&
-                    writeDefaultKeyframedControl(keyframed)) {
-                    forcePaletteIndexZero(keyframed, settings.keyframedOnFraction);
+                    writeDefaultKeyframedControl(keyframed) &&
+                    forcePaletteIndexZero(keyframed, settings.keyframedOnFraction)) {
                     result.keyframedForced = true;
                 }
                 if (settings.tuneKeyframedControls && keyframed.header->onFraction > 0.0f &&
@@ -390,8 +396,8 @@ namespace RPS::Runtime::Animation
             if (result.poweredTrackUsable) {
                 if (settings.forcePoweredControls &&
                     (powered.header->onFraction <= 0.0f || powered.header->numData <= 0) &&
-                    writeDefaultPoweredControl(powered)) {
-                    forcePaletteIndexZero(powered, settings.poweredOnFraction);
+                    writeDefaultPoweredControl(powered) &&
+                    forcePaletteIndexZero(powered, settings.poweredOnFraction)) {
                     result.poweredForced = true;
                 }
                 if (suppressPoweredControlsForOneFrame && powered.header->onFraction > 0.0f) {

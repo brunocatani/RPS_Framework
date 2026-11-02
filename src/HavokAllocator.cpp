@@ -37,8 +37,7 @@ namespace RPS::Runtime
         void* const allocator = bytes != 0 ? currentThreadAllocator() : nullptr;
         void** vtable{};
         void* entry{};
-        if (!allocator || !Memory::read(allocator, vtable) || !vtable || !Memory::read(vtable + 1, entry) ||
-            !Memory::rangeHasAccess(entry, 1, Memory::Access::Execute)) {
+        if (!allocator || !Memory::read(allocator, vtable) || !vtable || !Memory::read(vtable + 1, entry)) {
             return nullptr;
         }
 
@@ -59,8 +58,7 @@ namespace RPS::Runtime
         void* const allocator = allocation && bytes != 0 ? currentThreadAllocator() : nullptr;
         void** vtable{};
         void* entry{};
-        if (!allocator || !Memory::read(allocator, vtable) || !vtable || !Memory::read(vtable + 2, entry) ||
-            !Memory::rangeHasAccess(entry, 1, Memory::Access::Execute)) {
+        if (!allocator || !Memory::read(allocator, vtable) || !vtable || !Memory::read(vtable + 2, entry)) {
             return false;
         }
 
@@ -86,8 +84,7 @@ namespace RPS::Runtime
         using Function = void (*)(void*, void*, int);
         const auto function = _module.resolveFunction<Function>(Addresses::Symbol::Memory_HkArrayReserveMore);
         const auto allocatorGlobal = _module.resolve(Addresses::Symbol::Memory_HkArrayAllocatorGlobal);
-        if (!function || allocatorGlobal == 0 || !Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+        if (!function || allocatorGlobal == 0) {
             return false;
         }
 #if defined(_MSC_VER)

@@ -7,7 +7,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $viewHeader = Get-Content -Raw -LiteralPath (Join-Path $Root 'include/RPS/Runtime/GeneratorOutput.h')
-$viewSource = Get-Content -Raw -LiteralPath (Join-Path $Root 'src/GeneratorOutput.cpp')
 $poseHeader = Get-Content -Raw -LiteralPath (Join-Path $Root 'include/RPS/Runtime/AnimationPose.h')
 $poseSource = Get-Content -Raw -LiteralPath (Join-Path $Root 'src/AnimationPose.cpp')
 $motorHeader = Get-Content -Raw -LiteralPath (Join-Path $Root 'include/RPS/Runtime/AnimationMotor.h')
@@ -16,8 +15,6 @@ $motorSource = Get-Content -Raw -LiteralPath (Join-Path $Root 'src/AnimationMoto
 $required = @(
     @($viewHeader, 'TrackAccess'),
     @($viewHeader, 'valid only for the synchronous'),
-    @($viewSource, 'Memory::Access::Write'),
-    @($viewSource, 'access == TrackAccess::MutableStorage'),
     @($poseHeader, 'std::span<HkQsTransform>'),
     @($poseSource, 'if (dot < 0.0f)'),
     @($poseSource, 'Memory::copyTo'),

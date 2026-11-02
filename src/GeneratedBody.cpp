@@ -13,7 +13,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstring>
 #include <limits>
 #include <mutex>
 #include <new>
@@ -67,8 +66,7 @@ namespace RPS::Runtime::Physics
         template <class Function, class... Arguments>
         [[nodiscard]] bool invokeVoid(const Function function, Arguments... arguments) noexcept
         {
-            if (!function || !Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+            if (!function) {
                 return false;
             }
 #if defined(_MSC_VER)
@@ -88,8 +86,7 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] bool invokeResult(Result& result, const Function function, Arguments... arguments) noexcept
         {
             result = {};
-            if (!function || !Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+            if (!function) {
                 return false;
             }
 #if defined(_MSC_VER)
@@ -102,24 +99,6 @@ namespace RPS::Runtime::Physics
             }
 #else
             result = function(arguments...);
-            return true;
-#endif
-        }
-
-        [[nodiscard]] bool zeroMemory(void* const memory, const std::size_t bytes) noexcept
-        {
-            if (!Memory::rangeHasAccess(memory, bytes, Memory::Access::Write)) {
-                return false;
-            }
-#if defined(_MSC_VER)
-            __try {
-                std::memset(memory, 0, bytes);
-                return true;
-            } __except (EXCEPTION_EXECUTE_HANDLER) {
-                return false;
-            }
-#else
-            std::memset(memory, 0, bytes);
             return true;
 #endif
         }
@@ -242,9 +221,7 @@ namespace RPS::Runtime::Physics
             const auto entryAddress = reinterpret_cast<std::uintptr_t>(data) +
                                       static_cast<std::size_t>(size) * static_cast<std::size_t>(elementBytes);
             const auto nextSize = size + 1;
-            if (!Memory::rangeHasAccess(
-                    reinterpret_cast<void*>(entryAddress), static_cast<std::size_t>(elementBytes), Memory::Access::Write) ||
-                !Memory::write(reinterpret_cast<void*>(header + HavokLayout::Array_Size), nextSize)) {
+            if (!Memory::write(reinterpret_cast<void*>(header + HavokLayout::Array_Size), nextSize)) {
                 return nullptr;
             }
             return reinterpret_cast<void*>(entryAddress);
@@ -321,7 +298,7 @@ namespace RPS::Runtime::Physics
         {
             node = nullptr;
             void* const storage = allocateBethesda(module, BethesdaLayout::NiNodeSize);
-            if (!storage || !zeroMemory(storage, BethesdaLayout::NiNodeSize)) {
+            if (!storage || !Memory::zero(storage, BethesdaLayout::NiNodeSize)) {
                 return false;
             }
             using NodeConstructor = void* (*)(void*, std::uint16_t);
@@ -479,7 +456,7 @@ namespace RPS::Runtime::Physics
                 CreateResources resources{ .module = &_module, .bhkWorld = info.bhkWorld };
                 HavokAllocator havokAllocator{ _module };
                 resources.systemData = havokAllocator.allocate(BethesdaLayout::PhysicsSystemDataSize);
-                if (!resources.systemData || !zeroMemory(resources.systemData, BethesdaLayout::PhysicsSystemDataSize)) {
+                if (!resources.systemData || !Memory::zero(resources.systemData, BethesdaLayout::PhysicsSystemDataSize)) {
                     error = GeneratedBodyCreateError::HavokAllocationFailed;
                     if (resources.systemData) {
                         (void)havokAllocator.deallocate(resources.systemData, BethesdaLayout::PhysicsSystemDataSize);

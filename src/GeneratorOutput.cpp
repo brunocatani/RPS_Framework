@@ -63,14 +63,8 @@ namespace RPS::Runtime::Animation
         std::uint32_t headerBytes = 0;
         std::uint32_t tableBytes = 0;
         if (!checkedMultiply(static_cast<std::uint32_t>(sizeof(TrackHeader)), trackCount, headerBytes) ||
-            !checkedAdd(static_cast<std::uint32_t>(sizeof(TrackMasterHeader)), headerBytes, tableBytes) || tableBytes > blobBytes ||
-            !Memory::rangeHasAccess(output.tracks, blobBytes, Memory::Access::Read)) {
+            !checkedAdd(static_cast<std::uint32_t>(sizeof(TrackMasterHeader)), headerBytes, tableBytes) || tableBytes > blobBytes) {
             result.status = TrackStatus::InvalidMasterHeader;
-            return result;
-        }
-        if (access == TrackAccess::MutableStorage &&
-            !Memory::rangeHasAccess(output.tracks, blobBytes, Memory::Access::Write)) {
-            result.status = TrackStatus::ReadOnlyStorage;
             return result;
         }
         result.blobBytes = blobBytes;

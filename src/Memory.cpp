@@ -124,4 +124,22 @@ namespace RPS::Runtime::Memory
         return true;
 #endif
     }
+
+    bool zero(void* destination, const std::size_t bytes) noexcept
+    {
+        if (!destination || bytes == 0) {
+            return false;
+        }
+#if defined(_MSC_VER)
+        __try {
+            std::memset(destination, 0, bytes);
+            return true;
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            return false;
+        }
+#else
+        std::memset(destination, 0, bytes);
+        return true;
+#endif
+    }
 }

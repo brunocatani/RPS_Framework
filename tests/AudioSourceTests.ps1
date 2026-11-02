@@ -39,7 +39,6 @@ foreach ($needle in @(
 
 foreach ($needle in @(
     'currentThreadPhysicsStepState',
-    'Memory::Access::Execute',
     'HandleAlreadyActive',
     'NativeSoundHandle(const NativeSoundHandle&) = delete',
     'handle.invalidate()',

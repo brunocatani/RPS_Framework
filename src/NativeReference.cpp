@@ -25,8 +25,7 @@ namespace RPS::Runtime
             void** vtable{};
             void* entry{};
             if (!Memory::read(object, vtable) || !vtable ||
-                !Memory::read(vtable + Addresses::Layouts::Havok::ReferencedObject_DestroyVtableIndex, entry) ||
-                !Memory::rangeHasAccess(entry, 1, Memory::Access::Execute)) {
+                !Memory::read(vtable + Addresses::Layouts::Havok::ReferencedObject_DestroyVtableIndex, entry)) {
                 return false;
             }
             const auto destroy = reinterpret_cast<void (*)(void*)>(entry);
@@ -48,8 +47,7 @@ namespace RPS::Runtime
             void** vtable{};
             void* entry{};
             if (!Memory::read(object, vtable) || !vtable ||
-                !Memory::read(vtable + Addresses::Layouts::Bethesda::ReferencedObject_DestroyVtableIndex, entry) ||
-                !Memory::rangeHasAccess(entry, 1, Memory::Access::Execute)) {
+                !Memory::read(vtable + Addresses::Layouts::Bethesda::ReferencedObject_DestroyVtableIndex, entry)) {
                 return false;
             }
             const auto destroy = reinterpret_cast<void (*)(void*, int)>(entry);
@@ -78,11 +76,6 @@ namespace RPS::Runtime
             }
             auto* const referenceWord = reinterpret_cast<volatile long*>(
                 reinterpret_cast<std::uintptr_t>(object) + static_cast<std::uintptr_t>(referenceOffset));
-            if (!Memory::rangeHasAccess(
-                    const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Read) ||
-                !Memory::rangeHasAccess(const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Write)) {
-                return false;
-            }
 
 #if defined(_MSC_VER)
             __try {
@@ -119,11 +112,6 @@ namespace RPS::Runtime
             auto* const referenceWord = reinterpret_cast<volatile long*>(
                 reinterpret_cast<std::uintptr_t>(object) +
                 static_cast<std::uintptr_t>(Addresses::Layouts::Bethesda::ReferencedObject_ReferenceWord));
-            if (!Memory::rangeHasAccess(
-                    const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Read) ||
-                !Memory::rangeHasAccess(const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Write)) {
-                return false;
-            }
 
 #if defined(_MSC_VER)
             __try {
@@ -176,11 +164,6 @@ namespace RPS::Runtime
         auto* const referenceWord = reinterpret_cast<volatile long*>(
             reinterpret_cast<std::uintptr_t>(object) +
             static_cast<std::uintptr_t>(Addresses::Layouts::Havok::ReferencedObject_ReferenceWord));
-        if (!Memory::rangeHasAccess(
-                const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Read) ||
-            !Memory::rangeHasAccess(const_cast<long*>(referenceWord), sizeof(long), Memory::Access::Write)) {
-            return false;
-        }
 
 #if defined(_MSC_VER)
         __try {
@@ -243,11 +226,7 @@ namespace RPS::Runtime
         if (!Memory::read(object, vtable) || vtable == 0 ||
             !Memory::read(reinterpret_cast<const void*>(address + sizeof(void*)), result.referenceCount) ||
             result.referenceCount < 0 || result.referenceCount > MaximumReasonableIntrusiveReferenceCount ||
-            !Memory::read(reinterpret_cast<const void*>(vtable), destructor) || !destructor ||
-            !Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(destructor),
-                1,
-                Memory::Access::Execute)) {
+            !Memory::read(reinterpret_cast<const void*>(vtable), destructor) || !destructor) {
             result.referenceCount = 0;
             return result;
         }

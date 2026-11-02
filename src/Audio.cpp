@@ -27,15 +27,18 @@ namespace RPS::Runtime::Audio
             const Addresses::Symbol symbol,
             std::uintptr_t& address) noexcept
         {
+            // Resolved inside the verified executable image; every call runs
+            // under SEH, so no page-protection query is needed.
             address = module.resolve(symbol);
-            if (!Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(address),
-                    1,
-                    Memory::Access::Execute)) {
-                address = 0;
-                return nullptr;
-            }
-            return reinterpret_cast<Function>(address);
+            return address != 0 ? reinterpret_cast<Function>(address) : nullptr;
+        }
+
+        // One SEH-guarded read proves the object is mapped; a page-protection
+        // query would cost a kernel call on every sound start.
+        [[nodiscard]] bool readableObject(const void* const object) noexcept
+        {
+            std::uintptr_t firstWord{};
+            return object && Memory::read(object, firstWord);
         }
 
         [[nodiscard]] bool invokeBoolean(
@@ -140,17 +143,11 @@ namespace RPS::Runtime::Audio
             return result;
         }
         handle.invalidate();
-        if (!Memory::rangeHasAccess(
-                descriptor,
-                Layout::Descriptor_MinimumReadableSize,
-                Memory::Access::Read)) {
+        if (!readableObject(descriptor)) {
             result.status = AudioStatus::InvalidDescriptor;
             return result;
         }
-        if (!Memory::rangeHasAccess(
-                sceneObject,
-                Layout::SceneObject_MinimumReadableSize,
-                Memory::Access::Read)) {
+        if (!readableObject(sceneObject)) {
             result.status = AudioStatus::InvalidSceneObject;
             return result;
         }
@@ -161,10 +158,7 @@ namespace RPS::Runtime::Audio
         const auto managerGlobal = _module.resolve(Addresses::Symbol::Audio_ManagerSingleton);
         void* manager{};
         if (!Memory::read(reinterpret_cast<const void*>(managerGlobal), manager) ||
-            !Memory::rangeHasAccess(
-                manager,
-                Layout::AudioManager_MinimumReadableSize,
-                Memory::Access::Read)) {
+            !readableObject(manager)) {
             result.status = AudioStatus::InvalidManager;
             return result;
         }

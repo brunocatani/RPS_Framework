@@ -38,17 +38,21 @@ namespace RPS::Runtime::Character
             return true;
         }
 
-        [[nodiscard]] bool inspectExecutableVtable(
+        // One SEH-guarded read proves the object is mapped; a page-protection
+        // query would cost a kernel call on every inspection.
+        [[nodiscard]] bool readableObject(const std::uintptr_t address) noexcept
+        {
+            std::uintptr_t firstWord{};
+            return address != 0 && Memory::read(reinterpret_cast<const void*>(address), firstWord);
+        }
+
+        [[nodiscard]] bool inspectVtable(
             const void* const object,
             std::uintptr_t& vtableAddress) noexcept
         {
             std::uintptr_t firstFunction{};
             return Memory::read(object, vtableAddress) && vtableAddress != 0 &&
-                   Memory::read(reinterpret_cast<const void*>(vtableAddress), firstFunction) && firstFunction != 0 &&
-                   Memory::rangeHasAccess(
-                       reinterpret_cast<const void*>(firstFunction),
-                       1,
-                       Memory::Access::Execute);
+                   Memory::read(reinterpret_cast<const void*>(vtableAddress), firstFunction) && firstFunction != 0;
         }
 
         [[nodiscard]] bool resolveActorStateVirtual(
@@ -61,20 +65,16 @@ namespace RPS::Runtime::Character
 
             actorStateAddress = 0;
             functionAddress = 0;
-            if (!Memory::rangeHasAccess(actor, Layout::Actor_MinimumReadableSize, Memory::Access::Read) ||
+            if (!readableObject(reinterpret_cast<std::uintptr_t>(actor)) ||
                 !addOffset(reinterpret_cast<std::uintptr_t>(actor), Layout::Actor_StateSubobject, actorStateAddress)) {
                 return false;
             }
 
             std::uintptr_t vtableAddress{};
             std::uintptr_t slotAddress{};
-            return inspectExecutableVtable(reinterpret_cast<const void*>(actorStateAddress), vtableAddress) &&
+            return inspectVtable(reinterpret_cast<const void*>(actorStateAddress), vtableAddress) &&
                    addOffset(vtableAddress, slotOffset, slotAddress) &&
-                   Memory::read(reinterpret_cast<const void*>(slotAddress), functionAddress) && functionAddress != 0 &&
-                   Memory::rangeHasAccess(
-                       reinterpret_cast<const void*>(functionAddress),
-                       1,
-                       Memory::Access::Execute);
+                   Memory::read(reinterpret_cast<const void*>(slotAddress), functionAddress) && functionAddress != 0;
         }
 
         [[nodiscard]] NativeCallState invokeGetKnockState(
@@ -146,7 +146,7 @@ namespace RPS::Runtime::Character
 
         ActorStateSnapshot result{};
         result.actorAddress = reinterpret_cast<std::uintptr_t>(actor);
-        if (!Memory::rangeHasAccess(actor, Layout::Actor_MinimumReadableSize, Memory::Access::Read)) {
+        if (!readableObject(result.actorAddress)) {
             return result;
         }
         result.actorReadable = true;
@@ -155,7 +155,7 @@ namespace RPS::Runtime::Character
             result.actorReadable = false;
             return result;
         }
-        result.actorStateVtableReadable = inspectExecutableVtable(
+        result.actorStateVtableReadable = inspectVtable(
             reinterpret_cast<const void*>(result.actorStateAddress),
             result.actorStateVtableAddress);
 
@@ -179,10 +179,7 @@ namespace RPS::Runtime::Character
 
         if (!addOffset(result.actorAddress, Layout::Actor_AIProcess, fieldAddress) ||
             !Memory::read(reinterpret_cast<const void*>(fieldAddress), result.processAddress) ||
-            !Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(result.processAddress),
-                Layout::AIProcess_MinimumReadableSize,
-                Memory::Access::Read)) {
+            !readableObject(result.processAddress)) {
             result.processAddress = 0;
             return result;
         }
@@ -190,10 +187,7 @@ namespace RPS::Runtime::Character
 
         if (addOffset(result.processAddress, Layout::AIProcess_KnockData, fieldAddress) &&
             Memory::read(reinterpret_cast<const void*>(fieldAddress), result.knockDataAddress) &&
-            Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(result.knockDataAddress),
-                Layout::KnockData_MinimumReadableSize,
-                Memory::Access::Read)) {
+            readableObject(result.knockDataAddress)) {
             result.knockDataReadable = true;
             std::uint8_t ragdollFlag{};
             if (Memory::read(
@@ -211,10 +205,7 @@ namespace RPS::Runtime::Character
 
         if (addOffset(result.processAddress, Layout::AIProcess_HighData, fieldAddress) &&
             Memory::read(reinterpret_cast<const void*>(fieldAddress), result.highProcessAddress) &&
-            Memory::rangeHasAccess(
-                reinterpret_cast<const void*>(result.highProcessAddress),
-                Layout::HighProcess_MinimumReadableSize,
-                Memory::Access::Read)) {
+            readableObject(result.highProcessAddress)) {
             result.highProcessReadable = true;
             std::array<std::uint8_t, 2> flags{};
             result.processFlagsReadable = Memory::read(
@@ -446,8 +437,7 @@ namespace RPS::Runtime::Character
         const auto address = reinterpret_cast<void*>(
             result.before.actorAddress + Layout::Actor_RagdollMovementFlags);
         const auto cleared = clearActorRagdollMovementFlag(result.before.rawMovementFlags);
-        if (!Memory::rangeHasAccess(address, sizeof(cleared), Memory::Access::Write) ||
-            !Memory::write(address, cleared)) {
+        if (!Memory::write(address, cleared)) {
             result.status = ActorStateStatus::WriteFailed;
             return result;
         }
@@ -505,8 +495,7 @@ namespace RPS::Runtime::Character
         const std::array<std::uint8_t, 2> clearFlags{};
         auto* const address = reinterpret_cast<void*>(
             result.before.highProcessAddress + Layout::HighProcess_FullRagdollFlagA);
-        if (!Memory::rangeHasAccess(address, clearFlags.size(), Memory::Access::Write) ||
-            !Memory::write(address, clearFlags)) {
+        if (!Memory::write(address, clearFlags)) {
             result.status = ActorStateStatus::WriteFailed;
             return result;
         }

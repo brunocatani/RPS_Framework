@@ -1,13 +1,8 @@
 #include "RPS/Runtime/GeneratorOutput.h"
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <iostream>
 
 namespace
@@ -90,29 +85,6 @@ int main()
     pose.header->dataOffset = 0x2A0;
     if (viewTrack(&output, PoseTrack, 0x30).status != TrackStatus::PaletteRangeInvalid) {
         std::cerr << "palette bounds contract failed\n";
-        return 1;
-    }
-
-    initialize(blob);
-    void* const readOnlyBlob = VirtualAlloc(nullptr, BlobBytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (!readOnlyBlob) {
-        std::cerr << "read-only test allocation failed\n";
-        return 1;
-    }
-    std::memcpy(readOnlyBlob, blob.bytes.data(), BlobBytes);
-    DWORD oldProtection{};
-    if (!VirtualProtect(readOnlyBlob, BlobBytes, PAGE_READONLY, &oldProtection)) {
-        (void)VirtualFree(readOnlyBlob, 0, MEM_RELEASE);
-        std::cerr << "read-only test protection failed\n";
-        return 1;
-    }
-    GeneratorOutput readOnlyOutput{ readOnlyBlob, false };
-    const bool readOnlyContract = viewTrack(&readOnlyOutput, PoseTrack, 0x30, TrackAccess::StorageRead) &&
-                                  viewTrack(&readOnlyOutput, PoseTrack, 0x30, TrackAccess::MutableStorage).status ==
-                                      TrackStatus::ReadOnlyStorage;
-    (void)VirtualFree(readOnlyBlob, 0, MEM_RELEASE);
-    if (!readOnlyContract) {
-        std::cerr << "read-only mutation gate failed\n";
         return 1;
     }
 

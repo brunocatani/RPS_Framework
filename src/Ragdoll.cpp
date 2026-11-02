@@ -46,7 +46,8 @@ namespace RPS::Runtime::Physics
 
         [[nodiscard]] bool validManager(const void* const manager) noexcept
         {
-            return Memory::rangeHasAccess(manager, Layout::GraphManagerSize, Memory::Access::Read);
+            std::uintptr_t firstWord{};
+            return manager && Memory::read(manager, firstWord);
         }
 
         [[nodiscard]] bool releaseManagerReference(void* const manager) noexcept
@@ -56,19 +57,23 @@ namespace RPS::Runtime::Physics
             }
             auto* const referenceCount = reinterpret_cast<volatile long*>(
                 reinterpret_cast<std::byte*>(manager) + Layout::GraphManager_ReferenceCount);
-            if (!Memory::rangeHasAccess(
-                    const_cast<const long*>(referenceCount), sizeof(long), Memory::Access::Write)) {
+
+#if defined(_MSC_VER)
+            __try {
+#endif
+                auto current = InterlockedCompareExchange(referenceCount, 0, 0);
+                while (current > 1) {
+                    const auto exchanged = InterlockedCompareExchange(referenceCount, current - 1, current);
+                    if (exchanged == current) {
+                        return true;
+                    }
+                    current = exchanged;
+                }
+#if defined(_MSC_VER)
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
                 return false;
             }
-
-            auto current = InterlockedCompareExchange(referenceCount, 0, 0);
-            while (current > 1) {
-                const auto exchanged = InterlockedCompareExchange(referenceCount, current - 1, current);
-                if (exchanged == current) {
-                    return true;
-                }
-                current = exchanged;
-            }
+#endif
 
             // A valid actor-held manager cannot reach its terminal reference
             // here. Keep the unexpected last reference rather than destroying
@@ -80,8 +85,7 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] bool invoke(Result& result, const Function function, Arguments... arguments) noexcept
         {
             result = {};
-            if (!function || !Memory::rangeHasAccess(
-                    reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+            if (!function) {
                 return false;
             }
 #if defined(_MSC_VER)
@@ -100,26 +104,34 @@ namespace RPS::Runtime::Physics
 
         [[nodiscard]] bool acquireSpinLock(void* const lock, const std::uint32_t threadId) noexcept
         {
-            if (!lock || threadId == 0 || !Memory::rangeHasAccess(lock, 8, Memory::Access::Write)) {
+            if (!lock || threadId == 0) {
                 return false;
             }
             auto* const owner = reinterpret_cast<volatile long*>(lock);
             auto* const count = reinterpret_cast<volatile long*>(reinterpret_cast<std::byte*>(lock) + 4);
 
-            for (std::uint32_t attempt = 0; attempt < Layout::GraphLockAttemptLimit; ++attempt) {
-                const auto currentOwner = InterlockedCompareExchange(owner, 0, 0);
-                const auto currentCount = InterlockedCompareExchange(count, 0, 0);
-                if (currentOwner == static_cast<long>(threadId) && currentCount > 0 &&
-                    currentCount < (std::numeric_limits<long>::max)()) {
-                    if (InterlockedCompareExchange(count, currentCount + 1, currentCount) == currentCount) {
+#if defined(_MSC_VER)
+            __try {
+#endif
+                for (std::uint32_t attempt = 0; attempt < Layout::GraphLockAttemptLimit; ++attempt) {
+                    const auto currentOwner = InterlockedCompareExchange(owner, 0, 0);
+                    const auto currentCount = InterlockedCompareExchange(count, 0, 0);
+                    if (currentOwner == static_cast<long>(threadId) && currentCount > 0 &&
+                        currentCount < (std::numeric_limits<long>::max)()) {
+                        if (InterlockedCompareExchange(count, currentCount + 1, currentCount) == currentCount) {
+                            return true;
+                        }
+                    } else if (currentCount == 0 && InterlockedCompareExchange(count, 1, 0) == 0) {
+                        InterlockedExchange(owner, static_cast<long>(threadId));
                         return true;
                     }
-                } else if (currentCount == 0 && InterlockedCompareExchange(count, 1, 0) == 0) {
-                    InterlockedExchange(owner, static_cast<long>(threadId));
-                    return true;
+                    YieldProcessor();
                 }
-                YieldProcessor();
+#if defined(_MSC_VER)
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                return false;
             }
+#endif
             return false;
         }
 
@@ -145,8 +157,7 @@ namespace RPS::Runtime::Physics
         [[nodiscard]] void* readPointer(const void* const base, const std::ptrdiff_t offset) noexcept
         {
             void* result{};
-            if (!base || !Memory::read(reinterpret_cast<const std::byte*>(base) + offset, result) ||
-                !Memory::rangeHasAccess(result, sizeof(void*), Memory::Access::Read)) {
+            if (!base || !Memory::read(reinterpret_cast<const std::byte*>(base) + offset, result)) {
                 return nullptr;
             }
             return result;
@@ -215,18 +226,14 @@ namespace RPS::Runtime::Physics
 
     GraphManagerLease acquireActorGraphManager(void* const actor) noexcept
     {
-        if (!Memory::rangeHasAccess(actor, sizeof(void*), Memory::Access::Read)) {
-            return {};
-        }
         void* vtable{};
-        if (!Memory::read(actor, vtable) || !vtable) {
+        if (!actor || !Memory::read(actor, vtable) || !vtable) {
             return {};
         }
         GetGraphManagerFunction function{};
         if (!Memory::read(
                 reinterpret_cast<const std::byte*>(vtable) + Layout::Actor_GetGraphManagerVtable,
-                function) ||
-            !Memory::rangeHasAccess(reinterpret_cast<const void*>(function), 1, Memory::Access::Execute)) {
+                function)) {
             return {};
         }
 
@@ -303,11 +310,6 @@ namespace RPS::Runtime::Physics
                 return result;
             }
         }
-        if (!Memory::rangeHasAccess(storage, static_cast<std::size_t>(count) * sizeof(void*), Memory::Access::Read)) {
-            result.error = RagdollError::InvalidGraphArray;
-            return result;
-        }
-
         result.writtenCount = (std::min)(output.size(), static_cast<std::size_t>(count));
         result.truncated = result.writtenCount != count;
         for (std::size_t index = 0; index < result.writtenCount; ++index) {
@@ -352,8 +354,7 @@ namespace RPS::Runtime::Physics
             return result;
         }
         const auto capacity = capacityAndFlags & Layout::ArrayCapacityMask;
-        if (!data || count == 0 || count > capacity || count > Layout::MaximumBodyCount ||
-            !Memory::rangeHasAccess(data, static_cast<std::size_t>(count) * sizeof(std::uint32_t), Memory::Access::Read)) {
+        if (!data || count == 0 || count > capacity || count > Layout::MaximumBodyCount) {
             result.error = RagdollError::InvalidBodyArray;
             return result;
         }
@@ -414,7 +415,7 @@ namespace RPS::Runtime::Physics
         if (!validManager(manager)) {
             return operationFailure(RagdollError::InvalidManager);
         }
-        if (!bhkWorld || !Memory::rangeHasAccess(bhkWorld, sizeof(void*), Memory::Access::Read)) {
+        if (!bhkWorld) {
             return operationFailure(RagdollError::InvalidWorld);
         }
         const auto function = _module.resolveFunction<SetPhysicsWorldFunctor>(Addresses::Symbol::Ragdoll_SetPhysicsWorld);

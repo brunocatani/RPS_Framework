@@ -28,7 +28,6 @@ $requiredContracts = @(
     'using BooleanObjectCommand = void (*)(void*, bool)',
     'using UnaryObjectCommand = void (*)(void*)',
     'currentThreadPhysicsStepState',
-    'Memory::Access::Execute',
     'properRotation',
     'determinant - 1.0f',
     'NiAVObject_SetMaterialNeedsUpdateVtableIndex',

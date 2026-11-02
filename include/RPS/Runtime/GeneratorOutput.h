@@ -56,7 +56,6 @@ namespace RPS::Runtime::Animation
         InvalidHeader,
         InvalidRange,
         PaletteRangeInvalid,
-        ReadOnlyStorage,
     };
 
     enum class TrackAccess : std::uint8_t
@@ -84,7 +83,9 @@ namespace RPS::Runtime::Animation
     };
 
     // Returned pointers/spans are non-owning and valid only for the synchronous
-    // generator callback in which the engine supplied generatorOutput.
+    // generator callback in which the engine supplied generatorOutput. Only the
+    // track header has been read; access data and indices through the
+    // SEH-guarded Memory helpers.
     [[nodiscard]] TrackView viewTrack(
         void* generatorOutput,
         std::uint32_t trackId,
