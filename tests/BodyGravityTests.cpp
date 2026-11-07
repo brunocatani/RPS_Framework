@@ -43,6 +43,7 @@ int main()
     write(world, Havok::HknpWorld_BodyHighWaterMark, std::uint32_t{ 2 });
     write(world, Havok::HknpWorld_MotionPropertiesLibrary, libraryAddress);
     write(library, Havok::MotionPropertiesLibrary_Data, propertiesAddress);
+    write(library, Havok::MotionPropertiesLibrary_Size, std::int32_t{ 16 });
 
     constexpr std::uint32_t bodyIndex = 2;
     constexpr std::uint32_t motionIndex = 1;
@@ -63,6 +64,14 @@ int main()
         return 1;
     }
 
+    // An id is bounded by the library's size, whatever that size is.
+    write(library, Havok::MotionPropertiesLibrary_Size, std::int32_t{ propertiesId });
+    if (snapshotBodyGravityDuringSafeEpoch(world.data(), BodyId{ bodyIndex }).valid) {
+        std::cerr << "gravity snapshot accepted an id past the library\n";
+        return 1;
+    }
+    write(library, Havok::MotionPropertiesLibrary_Size, std::int32_t{ 16 });
+
     write(properties,
         propertiesId * Havok::MotionProperties_Stride + Havok::MotionProperties_GravityFactor,
         (std::numeric_limits<float>::quiet_NaN)());
@@ -79,6 +88,11 @@ int main()
     if (module || writeResult.status != BodyGravityWriteStatus::InvalidRuntime || writeResult.invoked || writeResult ||
         toString(BodyGravityWriteStatus::PhysicsStepActive) != "physics-step-active") {
         std::cerr << "gravity write did not fail closed without FO4VR\n";
+        return 1;
+    }
+    const auto entryResult = api.setBodyProperties(BodyId{ bodyIndex }, propertiesId);
+    if (module || entryResult.status != BodyGravityWriteStatus::InvalidRuntime || entryResult.invoked || entryResult) {
+        std::cerr << "motion properties write did not fail closed without FO4VR\n";
         return 1;
     }
 

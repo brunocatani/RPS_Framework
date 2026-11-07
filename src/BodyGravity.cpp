@@ -72,7 +72,7 @@ namespace RPS::Runtime::Physics
         BodyGravitySnapshot result{};
         result.bodyId = bodyId;
         const auto body = snapshotBodyDuringSafeEpoch(hknpWorld, bodyId);
-        if (!body.valid || !body.motion.valid || body.motion.motionPropertiesId >= Havok::MaxUsableMotionIndex) {
+        if (!body.valid || !body.motion.valid) {
             return result;
         }
 
@@ -80,8 +80,13 @@ namespace RPS::Runtime::Physics
         std::uintptr_t library{};
         std::uintptr_t properties{};
         std::uintptr_t property{};
+        std::int32_t size{};
+        // The library's own size bounds an id, up to the 16 bits the motion stores.
+        // A limit shared with motion indices refused real bodies once it grew past 4096.
         if (!Memory::read(reinterpret_cast<const void*>(world + Havok::HknpWorld_MotionPropertiesLibrary), library) ||
             library == 0 ||
+            !Memory::read(reinterpret_cast<const void*>(library + Havok::MotionPropertiesLibrary_Size), size) ||
+            size <= 0 || body.motion.motionPropertiesId >= size ||
             !Memory::read(reinterpret_cast<const void*>(library + Havok::MotionPropertiesLibrary_Data), properties) ||
             !indexedAddress(properties, body.motion.motionPropertiesId, Havok::MotionProperties_Stride, property) ||
             !Memory::read(
@@ -124,6 +129,10 @@ namespace RPS::Runtime::Physics
             return "native-fault";
         case BodyGravityWriteStatus::VerificationFailed:
             return "verification-failed";
+        case BodyGravityWriteStatus::WriteAccessUnavailable:
+            return "write-access-unavailable";
+        case BodyGravityWriteStatus::InvalidMotionProperties:
+            return "invalid-motion-properties";
         default:
             return "unknown";
         }
@@ -207,5 +216,96 @@ namespace RPS::Runtime::Physics
 
         result.status = BodyGravityWriteStatus::Applied;
         return result;
+    }
+
+    BodyGravityWriteResult BodyGravityApi::setBodyProperties(
+        const BodyId bodyId,
+        const std::uint16_t motionPropertiesId) const noexcept
+    {
+        using namespace Addresses::Layouts;
+
+        BodyGravityWriteResult result{};
+        if (!_module || !*_module) {
+            return result;
+        }
+        if (!_world) {
+            result.status = BodyGravityWriteStatus::InvalidWorld;
+            return result;
+        }
+        if (!bodyId.valid()) {
+            result.status = BodyGravityWriteStatus::InvalidBody;
+            return result;
+        }
+
+        switch (currentThreadPhysicsStepState(*_module)) {
+        case PhysicsStepState::Inside:
+            result.status = BodyGravityWriteStatus::PhysicsStepActive;
+            return result;
+        case PhysicsStepState::Unknown:
+            result.status = BodyGravityWriteStatus::PhysicsStepStateUnavailable;
+            return result;
+        case PhysicsStepState::Outside:
+            break;
+        }
+
+        WorldWriteGuard guard{ *_module, _world };
+        if (!guard.active()) {
+            result.status = BodyGravityWriteStatus::WriteAccessUnavailable;
+            return result;
+        }
+        result.before = snapshotBodyGravityDuringSafeEpoch(_world, bodyId);
+        if (!result.before.valid) {
+            result.status = BodyGravityWriteStatus::BodyUnavailable;
+            return result;
+        }
+
+        const auto world = reinterpret_cast<std::uintptr_t>(_world);
+        std::uintptr_t library{};
+        std::uintptr_t motionArray{};
+        std::uintptr_t motion{};
+        std::int32_t size{};
+        if (!Memory::read(reinterpret_cast<const void*>(world + Havok::HknpWorld_MotionPropertiesLibrary), library) ||
+            library == 0 ||
+            !Memory::read(reinterpret_cast<const void*>(library + Havok::MotionPropertiesLibrary_Size), size) ||
+            motionPropertiesId >= size) {
+            result.status = BodyGravityWriteStatus::InvalidMotionProperties;
+            return result;
+        }
+        if (!Memory::read(reinterpret_cast<const void*>(world + Havok::HknpWorld_MotionArray), motionArray) ||
+            !indexedAddress(motionArray, static_cast<std::uint16_t>(result.before.motionIndex), Havok::HknpMotion_Stride, motion)) {
+            result.status = BodyGravityWriteStatus::BodyUnavailable;
+            return result;
+        }
+        result.invoked = true;
+        if (!Memory::write(reinterpret_cast<void*>(motion + Havok::HknpMotion_PropertiesId), motionPropertiesId)) {
+            result.status = BodyGravityWriteStatus::NativeFault;
+            return result;
+        }
+
+        result.after = snapshotBodyGravityDuringSafeEpoch(_world, bodyId);
+        result.requestedGravityFactor = result.after.gravityFactor;
+        if (!result.after.valid || result.after.motionIndex != result.before.motionIndex ||
+            result.after.motionPropertiesId != motionPropertiesId) {
+            result.status = BodyGravityWriteStatus::VerificationFailed;
+            return result;
+        }
+
+        result.status = BodyGravityWriteStatus::Applied;
+        return result;
+    }
+
+    std::int32_t BodyGravityApi::motionPropertiesCount(const WorldReadGuard& guard) const noexcept
+    {
+        using namespace Addresses::Layouts;
+
+        std::uintptr_t library{};
+        std::int32_t size{};
+        if (!guard.owns(_world) ||
+            !Memory::read(reinterpret_cast<const void*>(reinterpret_cast<std::uintptr_t>(_world) + Havok::HknpWorld_MotionPropertiesLibrary), library) ||
+            library == 0 ||
+            !Memory::read(reinterpret_cast<const void*>(library + Havok::MotionPropertiesLibrary_Size), size)) {
+            return -1;
+        }
+        return size;
     }
 }

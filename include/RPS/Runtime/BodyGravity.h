@@ -38,6 +38,8 @@ namespace RPS::Runtime::Physics
         NativeUnavailable,
         NativeFault,
         VerificationFailed,
+        WriteAccessUnavailable,
+        InvalidMotionProperties,
     };
 
     struct BodyGravityWriteResult
@@ -68,6 +70,20 @@ namespace RPS::Runtime::Physics
          * verifies the result under separate read-lock epochs.
          */
         [[nodiscard]] BodyGravityWriteResult setBodyFactor(BodyId bodyId, float gravityFactor) const noexcept;
+
+        /**
+         * Points the body's motion at an entry already in the motion properties
+         * library, under the world write lock. Allocates nothing. setBodyFactor
+         * adds a library entry on every change for exclusive properties (the
+         * native skips its search when the entry's first dword is set), and the
+         * library is never trimmed, so anything changed repeatedly keeps the id
+         * setBodyFactor made and switches with this. Not callable inside a
+         * physics step or while holding a world guard.
+         */
+        [[nodiscard]] BodyGravityWriteResult setBodyProperties(BodyId bodyId, std::uint16_t motionPropertiesId) const noexcept;
+
+        /** Entries in the world's motion properties library, free ones included; -1 when unreadable. */
+        [[nodiscard]] std::int32_t motionPropertiesCount(const WorldReadGuard& guard) const noexcept;
 
     private:
         const RuntimeModule* _module{};
