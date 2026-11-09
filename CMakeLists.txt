@@ -57,7 +57,17 @@ add_library(RPSRuntime STATIC
 add_library(RPS::Runtime ALIAS RPSRuntime)
 set_target_properties(RPSRuntime PROPERTIES EXPORT_NAME Runtime)
 
-foreach(target IN ITEMS RPSAddresses RPSRuntime)
+# TOML settings files for mods (RPS/Settings). toml++ is header-only and used
+# only inside the library, so consumers do not depend on it.
+find_path(RPS_TOMLPLUSPLUS_INCLUDE_DIR toml++/toml.hpp REQUIRED)
+add_library(RPSSettings STATIC
+  src/Settings/Store.cpp
+)
+add_library(RPS::Settings ALIAS RPSSettings)
+set_target_properties(RPSSettings PROPERTIES EXPORT_NAME Settings)
+target_include_directories(RPSSettings PRIVATE $<BUILD_INTERFACE:${RPS_TOMLPLUSPLUS_INCLUDE_DIR}>)
+
+foreach(target IN ITEMS RPSAddresses RPSRuntime RPSSettings)
   target_compile_features(${target} PUBLIC cxx_std_23)
   target_compile_options(${target} PRIVATE
     /sdl
@@ -82,7 +92,7 @@ add_custom_target(RPSFrameworkStage ALL
           --install "${CMAKE_CURRENT_BINARY_DIR}"
           --config "$<CONFIG>"
           --prefix "${RPS_FRAMEWORK_STAGE_DIR}"
-  DEPENDS RPSAddresses RPSRuntime
+  DEPENDS RPSAddresses RPSRuntime RPSSettings
   COMMENT "Auto-deploying RPS Framework headers and libraries to the local stage"
   VERBATIM
 )
@@ -168,7 +178,13 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSImpactTests tests/ImpactTests.cpp)
   target_link_libraries(RPSImpactTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSSettingsStoreTests tests/SettingsStoreTests.cpp)
+  target_link_libraries(RPSSettingsStoreTests PRIVATE RPS::Settings)
+  target_compile_definitions(RPSSettingsStoreTests PRIVATE
+    RPS_SETTINGS_TEST_DIR="${CMAKE_CURRENT_BINARY_DIR}/settings-test")
+
   foreach(target IN ITEMS
+      RPSSettingsStoreTests
       RPSAddressCatalogTests
       RPSGeneratorOutputTests
       RPSCollisionFilterTests
@@ -392,7 +408,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   )
 endif()
 
-install(TARGETS RPSAddresses RPSRuntime
+install(TARGETS RPSAddresses RPSRuntime RPSSettings
   EXPORT RPSFrameworkTargets
   ARCHIVE DESTINATION lib
 )

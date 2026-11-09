@@ -1,0 +1,8 @@
+{
+  "name": "rps-framework",
+  "version": "0.1.0",
+  "dependencies": [
+    "tomlplusplus"
+  ],
+  "builtin-baseline": "b4a3d89125e45bc8f80fb94bef9761d4f4e14fb9"
+}
