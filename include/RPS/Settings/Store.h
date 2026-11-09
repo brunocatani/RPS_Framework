@@ -114,6 +114,9 @@ namespace RPS::Settings
 
         // startup: organize the files (and migrate old INIs). Otherwise only read.
         void load(bool startup);
+        // Writes the file only: the loaded values, settings() and revision()
+        // change at the next load(), so the owner applies a write the same way
+        // as an external edit.
         [[nodiscard]] bool setValue(Group group, std::string_view table, std::string_view key, std::string_view value);
         [[nodiscard]] bool setValues(Group group, std::span<const Change> changes);
         [[nodiscard]] LoadedValues loadedValues() const;
