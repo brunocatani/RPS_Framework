@@ -195,6 +195,24 @@ namespace
         require(bytes(store.path(Group::Player)) == organized, "a leftover INI changed the player file");
     }
 
+    // An INI that used one key in two sections: rows naming the section take
+    // the entry from that section, whichever comes last in the file.
+    void sectionChecks(const fs::path& directory)
+    {
+        fs::create_directories(directory);
+        constexpr LegacyKey sectioned[] = {
+            { "bEnabled", "Weapons", "Gunstock", LegacyKind::Value, 0, "false", {}, {}, {}, "Weapons" },
+            { "bEnabled", "Hand", "DefaultHand", LegacyKind::BooleanToString, 0, "false", {}, "left", "right", "Hands" },
+        };
+        const auto ini = directory / "TestMod.ini";
+        write(ini, "[Weapons]\r\nbEnabled = false\r\n[hands]\r\nbEnabled = true\r\n[Other]\r\nbEnabled = true\r\n");
+        Store store(files(directory), definitions(), { { ini }, sectioned });
+        store.load(true);
+        require(store.find("Weapons", "Gunstock")->value == "false", "a later section overwrote a section-named key");
+        require(store.find("Hand", "DefaultHand")->value == "left", "a section-named key was not carried");
+        require(hasLine(store.notices(), "bEnabled"), "a key in a section no row names was not reported");
+    }
+
     void declarationChecks(const fs::path& directory)
     {
         auto duplicated = definitions();
@@ -228,6 +246,7 @@ int main()
         faultChecks(root / "faults");
         developerChecks(root / "developer");
         migrationChecks(root / "migration");
+        sectionChecks(root / "sections");
         declarationChecks(root / "declaration");
         fs::remove_all(root, ec);
     } catch (const std::exception& error) {

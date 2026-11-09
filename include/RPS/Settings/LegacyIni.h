@@ -34,12 +34,17 @@ namespace RPS::Settings
         std::optional<std::string_view> otherOldDefault;
         std::string_view trueText;
         std::string_view falseText;
+        // The INI section the key sat in, compared without case. Empty matches
+        // the key in any section; name it when the old INI used the same key
+        // in several sections. A row naming the entry's section wins over one
+        // that matches any section.
+        std::string_view oldSection;
     };
 
     struct LegacyIni
     {
-        // Read in order (player file, then developer file); a later key wins,
-        // as in the INI loaders. Section headers were labels only and are ignored.
+        // Read in order (player file, then developer file); a later entry for
+        // the same row wins, as in the INI loaders.
         std::vector<std::filesystem::path> files;
         std::span<const LegacyKey> keys;
     };

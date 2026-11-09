@@ -8,6 +8,7 @@
 #include <Windows.h>
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <climits>
 #include <cmath>
@@ -498,13 +499,21 @@ namespace RPS::Settings
 
         using Values = std::map<std::string, std::string, std::less<>>;
 
-        // key = value lines; comments (; or #), blank lines and section
-        // headers are skipped. The value is everything after the first '=',
-        // so string options holding '=' or ';' keep their text.
-        void readIni(std::string_view text, Values& values)
+        struct IniEntry
+        {
+            std::string section;
+            std::string key;
+            std::string value;
+        };
+
+        // key = value lines with the section each sits in; comments (; or #)
+        // and blank lines are skipped. The value is everything after the first
+        // '=', so string options holding '=' or ';' keep their text.
+        void readIni(std::string_view text, std::vector<IniEntry>& entries)
         {
             if (text.starts_with("\xEF\xBB\xBF"))
                 text.remove_prefix(3);
+            std::string section;
             while (!text.empty()) {
                 const auto end = text.find('\n');
                 auto line = text.substr(0, end);
@@ -512,15 +521,44 @@ namespace RPS::Settings
                 if (!line.empty() && line.back() == '\r')
                     line.remove_suffix(1);
                 line = trim(line);
-                if (line.empty() || line.front() == ';' || line.front() == '#' || line.front() == '[')
+                if (line.empty() || line.front() == ';' || line.front() == '#')
                     continue;
+                if (line.front() == '[') {
+                    const auto close = line.find(']');
+                    section = trim(line.substr(1, close == std::string_view::npos ? std::string_view::npos : close - 1));
+                    continue;
+                }
                 const auto equals = line.find('=');
                 if (equals == std::string_view::npos)
                     continue;
                 const auto key = trim(line.substr(0, equals));
                 if (!key.empty())
-                    values.insert_or_assign(std::string(key), std::string(trim(line.substr(equals + 1))));
+                    entries.push_back({ section, std::string(key), std::string(trim(line.substr(equals + 1))) });
             }
+        }
+
+        bool equalNoCase(std::string_view left, std::string_view right)
+        {
+            return left.size() == right.size() && std::equal(left.begin(), left.end(), right.begin(), [](char a, char b) {
+                return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+            });
+        }
+
+        // The row for an INI entry: one naming its section first, else one for any section.
+        const LegacyKey* legacyRow(std::span<const LegacyKey> keys, const IniEntry& entry)
+        {
+            const LegacyKey* anySection = nullptr;
+            for (const auto& row : keys) {
+                if (row.oldKey != entry.key)
+                    continue;
+                if (row.oldSection.empty()) {
+                    if (!anySection)
+                        anySection = &row;
+                } else if (equalNoCase(row.oldSection, entry.section)) {
+                    return &row;
+                }
+            }
+            return anySection;
         }
 
         bool isOldDefault(const LegacyKey& row, const auto& equal)
@@ -548,15 +586,27 @@ namespace RPS::Settings
         Translation translate(std::span<const std::string> iniTexts, std::span<const LegacyKey> keys,
             std::span<const Setting> settings)
         {
-            Values values;
+            std::vector<IniEntry> entries;
             for (const auto& text : iniTexts)
-                readIni(text, values);
-
-            std::map<std::string_view, const LegacyKey*, std::less<>> rows;
-            for (const auto& row : keys)
-                rows.emplace(row.oldKey, &row);
+                readIni(text, entries);
 
             Translation result;
+            // Each row's value in first-seen order; a later entry for a row replaces it.
+            std::vector<std::pair<const LegacyKey*, std::string>> rowValues;
+            for (auto& entry : entries) {
+                const auto* row = legacyRow(keys, entry);
+                if (!row) {
+                    if (std::find(result.retired.begin(), result.retired.end(), entry.key) == result.retired.end())
+                        result.retired.push_back(entry.key);
+                    continue;
+                }
+                const auto known = std::find_if(rowValues.begin(), rowValues.end(),
+                    [&](const auto& pair) { return pair.first == row; });
+                if (known == rowValues.end())
+                    rowValues.emplace_back(row, std::move(entry.value));
+                else
+                    known->second = std::move(entry.value);
+            }
             const auto assign = [&](const Setting& setting, std::string value) {
                 auto& target = setting.group == Group::Developer ? result.developer : result.player;
                 const auto path = settingPath(setting.table, setting.key);
@@ -574,14 +624,14 @@ namespace RPS::Settings
             };
             std::map<std::string, List, std::less<>> lists;
 
-            for (const auto& [oldKey, text] : values) {
-                const auto row = rows.find(oldKey);
-                const auto* setting = row == rows.end() ? nullptr : findSetting(settings, row->second->table, row->second->key);
+            for (const auto& [row, text] : rowValues) {
+                const auto& legacy = *row;
+                const auto oldKey = legacy.oldKey;
+                const auto* setting = findSetting(settings, legacy.table, legacy.key);
                 if (!setting) {
-                    result.retired.push_back(oldKey);
+                    result.retired.emplace_back(oldKey);
                     continue;
                 }
-                const auto& legacy = *row->second;
                 const auto invalid = [&]() { result.invalid.push_back(std::format("{} = {}", oldKey, text)); };
                 switch (legacy.kind) {
                 case LegacyKind::Value: {
