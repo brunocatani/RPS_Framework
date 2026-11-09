@@ -45,9 +45,17 @@ namespace RPS::Settings
             return result;
         }
 
+        // TOML numbers and the old INI readers allow one leading '+'.
+        std::string_view withoutPlus(std::string_view text)
+        {
+            if (text.size() > 1 && text.front() == '+' && text[1] != '+' && text[1] != '-')
+                text.remove_prefix(1);
+            return text;
+        }
+
         std::optional<float> parseFloat(std::string_view text)
         {
-            text = trim(text);
+            text = withoutPlus(trim(text));
             float number{};
             const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), number);
             if (text.empty() || error != std::errc{} || end != text.data() + text.size() || !std::isfinite(number))
@@ -727,7 +735,7 @@ namespace RPS::Settings
             return std::nullopt;
         }
         case ValueType::Integer: {
-            value = trim(value);
+            value = withoutPlus(trim(value));
             int number{};
             const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), number);
             if (value.empty() || error != std::errc{} || end != value.data() + value.size())

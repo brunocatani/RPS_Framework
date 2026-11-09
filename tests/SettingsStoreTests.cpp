@@ -87,6 +87,9 @@ namespace
             "float canonical form");
         require(!normalizeValue(ValueType::Float, "inf") && !normalizeValue(ValueType::Integer, "2.5"),
             "non-finite float or fractional integer accepted");
+        require(normalizeValue(ValueType::Float, "+15") == "15.0" && normalizeValue(ValueType::Integer, "+3") == "3" &&
+                    !normalizeValue(ValueType::Float, "+-1") && !normalizeValue(ValueType::Integer, "++3"),
+            "a leading plus");
         require(normalizeValue(ValueType::Boolean, "On") == "true" && !normalizeValue(ValueType::Boolean, "maybe"),
             "boolean forms");
         require(!normalizeValue(ValueType::String, "two\nlines"), "multi-line string accepted");
