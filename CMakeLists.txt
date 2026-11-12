@@ -57,15 +57,19 @@ add_library(RPSRuntime STATIC
 add_library(RPS::Runtime ALIAS RPSRuntime)
 set_target_properties(RPSRuntime PROPERTIES EXPORT_NAME Runtime)
 
-# TOML settings files for mods (RPS/Settings). toml++ is header-only and used
-# only inside the library, so consumers do not depend on it.
+# TOML settings files for mods (RPS/Settings). toml++ is used only inside the
+# library, so consumers do not depend on it. Its implementation is compiled once
+# in its own object (TomlImpl.cpp), as F4VR-CommonFramework does, so a mod that
+# links both gets one copy instead of a duplicate-symbol link error.
 find_path(RPS_TOMLPLUSPLUS_INCLUDE_DIR toml++/toml.hpp REQUIRED)
 add_library(RPSSettings STATIC
   src/Settings/Store.cpp
+  src/Settings/TomlImpl.cpp
 )
 add_library(RPS::Settings ALIAS RPSSettings)
 set_target_properties(RPSSettings PROPERTIES EXPORT_NAME Settings)
 target_include_directories(RPSSettings PRIVATE $<BUILD_INTERFACE:${RPS_TOMLPLUSPLUS_INCLUDE_DIR}>)
+target_compile_definitions(RPSSettings PRIVATE TOML_HEADER_ONLY=0)
 
 foreach(target IN ITEMS RPSAddresses RPSRuntime RPSSettings)
   target_compile_features(${target} PUBLIC cxx_std_23)
