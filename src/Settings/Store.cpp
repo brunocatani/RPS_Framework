@@ -776,6 +776,56 @@ namespace RPS::Settings
             }
             return result;
         }
+
+        // ---- Renamed TOML keys ----
+
+        struct Carried
+        {
+            Overrides values;
+            std::vector<std::string> notices;
+            std::vector<std::string> problems;
+        };
+
+        /**
+         * The values renamed keys carry into the new options of one file: a row applies when the file has its old key
+         * and not its new one. A developer value equal to its default is not carried, as the developer file holds
+         * only overrides; the old key is left for organize to keep as a comment either way.
+         */
+        Carried carryRenamedKeys(std::span<const RenamedKey> renamed, std::span<const Setting> settings,
+            const toml::table& table, Group group, std::string_view fileName)
+        {
+            Carried result;
+            for (const auto& row : renamed) {
+                const auto* setting = findSetting(settings, row.table, row.key);
+                if (!setting || setting->group != group)
+                    continue;
+                const auto oldPath = settingPath(row.oldTable, row.oldKey);
+                const auto newPath = settingPath(row.table, row.key);
+                const auto old = table.at_path(oldPath);
+                if (!old || table.at_path(newPath) || result.values.contains(newPath))
+                    continue;
+                std::optional<std::string> value;
+                switch (row.kind) {
+                case RenameKind::Value:
+                    value = canonicalFromNode(setting->type, *old.node());
+                    break;
+                case RenameKind::Float3ToTransformPosition:
+                    if (const auto position = float3FromNode(*old.node()))
+                        value = formatTransform(Transform{ .position = *position });
+                    break;
+                }
+                if (!value) {
+                    result.problems.push_back(std::format("{} line {}: {} is not carried into {}, its value does not fit",
+                        fileName, old.node()->source().begin.line, oldPath, newPath));
+                    continue;
+                }
+                if (group == Group::Developer && sameValue(setting->type, *value, setting->defaultValue))
+                    continue;
+                result.notices.push_back(std::format("Carried {} into {} in {}", oldPath, newPath, fileName));
+                result.values.emplace(newPath, std::move(*value));
+            }
+            return result;
+        }
     }
 
     std::string settingPath(std::string_view table, std::string_view key)
@@ -880,8 +930,8 @@ namespace RPS::Settings
         return std::nullopt;
     }
 
-    Store::Store(Files files, std::vector<Definition> definitions, LegacyIni legacy) :
-        _files(std::move(files)), _legacy(std::move(legacy))
+    Store::Store(Files files, std::vector<Definition> definitions, LegacyIni legacy, std::span<const RenamedKey> renamed) :
+        _files(std::move(files)), _legacy(std::move(legacy)), _renamed(renamed)
     {
         if (_files.directory.empty() || _files.playerFileName.empty())
             throw std::invalid_argument("Settings files need a directory and a player file name");
@@ -917,6 +967,18 @@ namespace RPS::Settings
             if (!typeMatches || row.component > 2)
                 throw std::invalid_argument(
                     std::format("INI key {} does not fit the type of {}.{}", row.oldKey, row.table, row.key));
+        }
+        for (const auto& row : _renamed) {
+            const auto oldPath = settingPath(row.oldTable, row.oldKey);
+            const auto* setting = find(row.table, row.key);
+            if (!setting)
+                throw std::invalid_argument(
+                    std::format("Renamed key {} maps to unknown option {}.{}", oldPath, row.table, row.key));
+            if (row.kind == RenameKind::Float3ToTransformPosition && setting->type != ValueType::Transform)
+                throw std::invalid_argument(
+                    std::format("Renamed key {} does not fit the type of {}.{}", oldPath, row.table, row.key));
+            if (find(row.oldTable, row.oldKey))
+                throw std::invalid_argument(std::format("Renamed key {} is still an option", oldPath));
         }
     }
 
@@ -1093,13 +1155,24 @@ namespace RPS::Settings
                 _messages.push_back(document.problem);
                 continue;
             }
+            Overrides carried;
+            if (startup && document.state == FileState::Parsed) {
+                auto renamed = carryRenamedKeys(_renamed, updated, document.table, group, file.filename().string());
+                _notices.insert(_notices.end(), renamed.notices.begin(), renamed.notices.end());
+                _messages.insert(_messages.end(), renamed.problems.begin(), renamed.problems.end());
+                carried = std::move(renamed.values);
+            }
             std::vector<Setting*> missing;
             for (auto& setting : updated) {
                 if (setting.group != group)
                     continue;
                 std::string next = setting.defaultValue;
                 bool specified = false;
-                if (const auto node = document.table.at_path(settingPath(setting.table, setting.key))) {
+                const auto path = settingPath(setting.table, setting.key);
+                if (const auto found = carried.find(path); found != carried.end()) {
+                    next = *found->second;
+                    specified = true;
+                } else if (const auto node = document.table.at_path(path)) {
                     const auto canonical = canonicalFromNode(setting.type, *node.node());
                     if (!canonical) {
                         _messages.push_back(std::format("{} line {}: {}.{} must be {}; keeping {}",
@@ -1123,7 +1196,7 @@ namespace RPS::Settings
             // unwritable file can still be read; report and keep going.
             bool hasEntries = false;
             const auto* source = document.state == FileState::Parsed ? &document : nullptr;
-            const auto text = organize(_files, group, updated, source, {}, hasEntries);
+            const auto text = organize(_files, group, updated, source, carried, hasEntries);
             bool written = true;
             if (group == Group::Developer && !hasEntries)
                 written = removeDeveloperFile();

@@ -1,7 +1,7 @@
 // RPS::Settings::Store against real files: organizing keeps what a file means,
 // faults keep the last values, the developer file holds only overrides,
-// transforms stay one inline value, and old INI files migrate once and are
-// deleted.
+// transforms stay one inline value, old INI files migrate once and are
+// deleted, and renamed keys carry their values once.
 #include "RPS/Settings/Store.h"
 
 #include <filesystem>
@@ -266,6 +266,48 @@ namespace
         require(bytes(store.path(Group::Player)) == organized, "a leftover INI changed the player file");
     }
 
+    constexpr RenamedKey kRenamed[] = {
+        { "Hand.Left", "GripOffset", "Hand.Left", "Grip", RenameKind::Float3ToTransformPosition },
+        { "Weapons", "FuseSeconds", "Weapons", "Fuse", RenameKind::Value },
+        { "Debug", "OldPattern", "Debug", "Pattern", RenameKind::Value },
+    };
+
+    // A renamed key carries its value to the new option once, at startup,
+    // and then stays only as a comment; a new key the file has always wins.
+    void renameChecks(const fs::path& directory)
+    {
+        fs::create_directories(directory);
+        Store store(files(directory), definitions(), {}, kRenamed);
+        write(store.path(Group::Player), "[Hand.Left]\nGripOffset = [1, 2, 3]\n[Weapons]\nFuseSeconds = 6\n");
+        write(store.path(Group::Developer), "[Debug]\nOldPattern = \"%x\"\n");
+        store.load(true);
+        require(store.messages().empty(), "carrying renamed keys reported problems");
+        require(store.find("Hand.Left", "Grip")->value == "{ pos = [1.0, 2.0, 3.0] }", "a float3 was not carried into a transform");
+        require(store.find("Weapons", "Fuse")->value == "6.0", "a renamed value was not carried");
+        require(store.find("Debug", "Pattern")->value == "%x", "a renamed developer value was not carried");
+        require(hasLine(store.notices(), "Carried Hand.Left.GripOffset into Hand.Left.Grip"), "a carried key was not named");
+        const auto organized = bytes(store.path(Group::Player));
+        require(organized.find("Grip = { pos = [1.0, 2.0, 3.0] }\n") != std::string::npos &&
+                    organized.find("# Hand.Left.GripOffset = [ 1, 2, 3 ]") != std::string::npos,
+            "the carried value was not written with the old key as a comment");
+        require(bytes(store.path(Group::Developer)).find("Pattern = \"%x\"\n") != std::string::npos,
+            "a carried developer value was not written to the developer file");
+        const auto revision = store.revision();
+        store.load(true);
+        require(bytes(store.path(Group::Player)) == organized && store.revision() == revision && store.notices().empty(),
+            "a renamed key was carried twice");
+
+        write(store.path(Group::Player), "[Hand.Left]\nGripOffset = [1, 2, 3]\nGrip = { pos = [9, 9, 9] }\n");
+        store.load(true);
+        require(store.find("Hand.Left", "Grip")->value == "{ pos = [9.0, 9.0, 9.0] }", "an old key replaced the new key");
+
+        write(store.path(Group::Player), "[Hand.Left]\nGripOffset = \"left\"\n");
+        store.load(true);
+        require(store.find("Hand.Left", "Grip")->value == "{ pos = [0.0, 0.0, 0.0] }", "a value that does not fit was carried");
+        require(hasLine(store.messages(), "Hand.Left.GripOffset is not carried into Hand.Left.Grip"),
+            "a value that does not fit was not reported");
+    }
+
     // An INI that used one key in two sections: rows naming the section take
     // the entry from that section, whichever comes last in the file.
     void sectionChecks(const fs::path& directory)
@@ -303,6 +345,20 @@ namespace
             refused = true;
         }
         require(refused, "a legacy key of the wrong type was accepted");
+        constexpr RenamedKey badRenames[][1] = {
+            { { "Old", "Key", "Missing", "Option" } },
+            { { "Old", "Key", "Weapons", "Fuse", RenameKind::Float3ToTransformPosition } },
+            { { "Weapons", "Gunstock", "Weapons", "Fuse" } },
+        };
+        for (const auto& rename : badRenames) {
+            refused = false;
+            try {
+                Store store(files(directory), definitions(), {}, rename);
+            } catch (const std::invalid_argument&) {
+                refused = true;
+            }
+            require(refused, "a renamed key to a missing option, of the wrong type or still an option was accepted");
+        }
     }
 }
 
@@ -319,6 +375,7 @@ int main()
         developerChecks(root / "developer");
         migrationChecks(root / "migration");
         sectionChecks(root / "sections");
+        renameChecks(root / "renames");
         declarationChecks(root / "declaration");
         fs::remove_all(root, ec);
     } catch (const std::exception& error) {
