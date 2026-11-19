@@ -765,14 +765,23 @@ namespace RPS::Settings
             }
 
             // A list starts from the current default; only the components the
-            // player changed replace it.
+            // player changed replace it. A transform's list is its pos, and
+            // its other parts stay the default's.
             for (const auto& [path, list] : lists) {
-                auto merged = parseFloat3(list.setting->defaultValue).value_or(std::array<float, 3>{});
+                const bool transform = list.setting->type == ValueType::Transform;
+                auto defaultTransform = transform ? parseTransform(list.setting->defaultValue).value_or(Transform{}) : Transform{};
+                auto merged = transform ? defaultTransform.position.value_or(std::array<float, 3>{})
+                                        : parseFloat3(list.setting->defaultValue).value_or(std::array<float, 3>{});
                 for (std::size_t index = 0; index < 3; ++index) {
                     if (list.components[index])
                         merged[index] = *list.components[index];
                 }
-                assign(*list.setting, formatFloat3(merged));
+                if (transform) {
+                    defaultTransform.position = merged;
+                    assign(*list.setting, formatTransform(defaultTransform));
+                } else {
+                    assign(*list.setting, formatFloat3(merged));
+                }
             }
             return result;
         }
@@ -961,7 +970,8 @@ namespace RPS::Settings
             if (!setting)
                 throw std::invalid_argument(
                     std::format("INI key {} maps to unknown option {}.{}", row.oldKey, row.table, row.key));
-            const bool typeMatches = row.kind == LegacyKind::Float3Component ? setting->type == ValueType::Float3
+            const bool typeMatches = row.kind == LegacyKind::Float3Component
+                ? setting->type == ValueType::Float3 || setting->type == ValueType::Transform
                 : row.kind == LegacyKind::BooleanToString ? setting->type == ValueType::String
                                                           : setting->type != ValueType::Float3;
             if (!typeMatches || row.component > 2)

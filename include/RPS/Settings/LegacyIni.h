@@ -15,7 +15,7 @@ namespace RPS::Settings
     enum class LegacyKind : std::uint8_t
     {
         Value,           // Same value, new table and key.
-        Float3Component, // One of the X/Y/Z or pitch/yaw/roll keys of a list (component 0..2).
+        Float3Component, // One of the X/Y/Z or pitch/yaw/roll keys of a list or a Transform's pos (component 0..2).
         BooleanToString, // A boolean that became one of two strings: trueText or falseText.
     };
 

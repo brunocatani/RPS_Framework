@@ -79,6 +79,8 @@ namespace
         { "bLeftHanded", "Hand", "DefaultHand", LegacyKind::BooleanToString, 0, "false", {}, "left", "right" },
         { "fOffsetY", "Debug", "Offset", LegacyKind::Float3Component, 1, "-1.0", {} },
         { "iMaxBodies", "Debug", "MaxBodies", LegacyKind::Value, 0, "171", "163" },
+        { "fGripZ", "Hand.Left", "Grip", LegacyKind::Float3Component, 2, "0.0", {} },
+        { "fProxyX", "Debug", "Proxy", LegacyKind::Float3Component, 0, "0.0", {} },
     };
 
     void valueChecks()
@@ -241,8 +243,8 @@ namespace
         write(playerIni,
             "\xEF\xBB\xBF; TestMod.ini\r\n[General]\r\niLogLevel = 2\r\nbGunstockMode = true\r\n"
             "fFuseSeconds = soon\r\nbLeftHanded = true\r\nfAimOffsetX = 0.0\r\nfAimOffsetY = 2.5\r\n"
-            "bRetiredOption = true\r\n[Moved]\r\nfOffsetY = 12\r\n");
-        write(developerIni, "[Debug]\r\niMaxBodies = 100\r\n");
+            "bRetiredOption = true\r\nfGripZ = 4\r\n[Moved]\r\nfOffsetY = 12\r\n");
+        write(developerIni, "[Debug]\r\niMaxBodies = 100\r\nfProxyX = 3\r\n");
         Store store(files(directory), definitions(), { { playerIni, developerIni }, kLegacy });
         store.load(true);
         require(!fs::exists(playerIni) && !fs::exists(developerIni), "migrated INIs were not deleted");
@@ -250,6 +252,9 @@ namespace
         require(store.find("Logging", "LogLevel")->value == "2", "an old default was carried");
         require(store.find("Hand", "DefaultHand")->value == "left", "a boolean-to-string key was not carried");
         require(store.find("Hand.Left", "AimOffset")->value == "[0.0, 2.5, 0.0]", "a triplet was not carried");
+        require(store.find("Hand.Left", "Grip")->value == "{ pos = [0.0, 0.0, 4.0] }" &&
+                    store.find("Debug", "Proxy")->value == "{ pos = [3.0, 0.0, 0.0], scale = 1.0 }",
+            "a component was not carried into a transform's pos over its default");
         require(store.find("Debug", "Offset")->value == "[0.5, 12.0, 0.0]" &&
                     store.find("Debug", "MaxBodies")->value == "100",
             "developer options were not carried");
