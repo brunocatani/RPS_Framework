@@ -42,7 +42,17 @@ namespace RPS::Settings
         Integer,
         Float,
         String,
-        Float3, // Three numbers, written "[x, y, z]".
+        Float3,    // Three numbers, written "[x, y, z]".
+        Transform, // An inline table "{ pos = [x, y, z], rot = [heading, roll, attitude], scale = s }", parts optional.
+    };
+
+    // A Transform value as F4VR-CommonFramework reads it: each part is
+    // optional, and a missing part means no move, no rotation or a scale of 1.
+    struct Transform
+    {
+        std::optional<std::array<float, 3>> position;
+        std::optional<std::array<float, 3>> rotation; // [heading, roll, attitude] in degrees.
+        std::optional<float> scale;
     };
 
     enum class Group : std::uint32_t
@@ -98,11 +108,14 @@ namespace RPS::Settings
     [[nodiscard]] std::string settingPath(std::string_view table, std::string_view key);
 
     // Canonical text of a value: true/false, a decimal integer, a float that
-    // always carries a '.' or exponent, raw text, or "[x, y, z]". Accepts the
-    // looser forms an API caller may send (1/0, yes/no, on/off, "x, y, z").
+    // always carries a '.' or exponent, raw text, "[x, y, z]", or a transform
+    // table with its parts in pos, rot, scale order. Accepts the looser forms
+    // an API caller may send (1/0, yes/no, on/off, "x, y, z", any key order).
     // Returns nullopt for a value the type cannot hold.
     [[nodiscard]] std::optional<std::string> normalizeValue(ValueType type, std::string_view value);
     [[nodiscard]] std::optional<std::array<float, 3>> parseFloat3(std::string_view value);
+    [[nodiscard]] std::optional<Transform> parseTransform(std::string_view value);
+    [[nodiscard]] std::string formatTransform(const Transform& value);
 
     class Store
     {

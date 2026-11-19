@@ -1,6 +1,7 @@
 // RPS::Settings::Store against real files: organizing keeps what a file means,
-// faults keep the last values, the developer file holds only overrides, and
-// old INI files migrate once and are deleted.
+// faults keep the last values, the developer file holds only overrides,
+// transforms stay one inline value, and old INI files migrate once and are
+// deleted.
 #include "RPS/Settings/Store.h"
 
 #include <filesystem>
@@ -53,7 +54,10 @@ namespace
             { "Weapons", "Fuse", "02. Weapons", "Fuse seconds", Group::Player, ValueType::Float, "4.0" },
             { "Hand.Left", "AimOffset", "03. Hands", "Aim offset", Group::Player, ValueType::Float3, "[0.0, 0.0, 0.0]" },
             { "Hand", "DefaultHand", "03. Hands", "right or left", Group::Player, ValueType::String, "right" },
+            { "Hand.Left", "Grip", "03. Hands", "Grip transform", Group::Player, ValueType::Transform,
+                "{ pos = [0.0, 0.0, 0.0] }" },
             { "Debug", "Pattern", "04. Debug", "Log pattern", Group::Developer, ValueType::String, "%v" },
+            { "Debug", "Proxy", "04. Debug", "Proxy transform", Group::Developer, ValueType::Transform, "{ scale = 1.0 }" },
             { "Debug", "Offset", "04. Debug", "Proxy offset", Group::Developer, ValueType::Float3, "[0.5, -1.0, 0.0]" },
             { "Debug", "MaxBodies", "04. Debug", "Body limit", Group::Developer, ValueType::Integer, "195" },
         };
@@ -93,6 +97,70 @@ namespace
         require(normalizeValue(ValueType::Boolean, "On") == "true" && !normalizeValue(ValueType::Boolean, "maybe"),
             "boolean forms");
         require(!normalizeValue(ValueType::String, "two\nlines"), "multi-line string accepted");
+        require(normalizeValue(ValueType::Transform, "{scale=2, pos=[1, 2, 3]}") == "{ pos = [1.0, 2.0, 3.0], scale = 2.0 }",
+            "transform canonical form");
+        require(normalizeValue(ValueType::Transform, " {} ") == "{}", "empty transform");
+        require(!normalizeValue(ValueType::Transform, "{ pos = [1, 2] }") &&
+                    !normalizeValue(ValueType::Transform, "{ size = 1 }") &&
+                    !normalizeValue(ValueType::Transform, "[1, 2, 3]") &&
+                    !normalizeValue(ValueType::Transform, "{ scale = \"big\" }") &&
+                    !normalizeValue(ValueType::Transform, "{ pos = [1, 2, 3] }\nother = 1"),
+            "malformed transform accepted");
+        const auto transform = parseTransform("{ rot = [0, 90, -5.5] }");
+        require(transform && !transform->position && !transform->scale && transform->rotation &&
+                    formatTransform(*transform) == "{ rot = [0.0, 90.0, -5.5] }",
+            "transform parts did not round-trip");
+    }
+
+    // A transform is one value whether written inline or as a table section,
+    // is written back inline, and keeps a malformed table as the player wrote it.
+    void transformChecks(const fs::path& directory)
+    {
+        fs::create_directories(directory);
+        Store store(files(directory), definitions());
+        write(store.path(Group::Player), "[Hand.Left]\nGrip = { scale = 1, pos = [1, 2, 3] }\n");
+        store.load(true);
+        require(store.messages().empty(), "a valid transform reported problems");
+        require(store.find("Hand.Left", "Grip")->value == "{ pos = [1.0, 2.0, 3.0], scale = 1.0 }",
+            "an inline transform did not apply");
+        auto organized = bytes(store.path(Group::Player));
+        require(organized.find("Grip = { pos = [1.0, 2.0, 3.0], scale = 1.0 }\n") != std::string::npos,
+            "a transform was not written inline");
+        require(organized.find("Not read by this version") == std::string::npos, "a transform's parts became unread");
+
+        write(store.path(Group::Player), "[Hand.Left.Grip]\npos = [4, 5, 6]\n");
+        store.load(true);
+        require(store.find("Hand.Left", "Grip")->value == "{ pos = [4.0, 5.0, 6.0] }", "a transform section did not apply");
+        organized = bytes(store.path(Group::Player));
+        require(organized.find("Grip = { pos = [4.0, 5.0, 6.0] }\n") != std::string::npos &&
+                    organized.find("[Hand.Left.Grip]") == std::string::npos &&
+                    organized.find("Not read by this version") == std::string::npos,
+            "a transform section was not rewritten inline");
+
+        write(store.path(Group::Player), "[Hand.Left]\nGrip = { pos = [1, 2] }\n[Debug]\nProxy = { scale = 3 }\n");
+        store.load(true);
+        require(store.find("Hand.Left", "Grip")->value == "{ pos = [4.0, 5.0, 6.0] }",
+            "a malformed transform replaced the last value");
+        require(hasLine(store.messages(), "Hand.Left.Grip must be a table"), "a malformed transform was not reported");
+        organized = bytes(store.path(Group::Player));
+        require(organized.find("Grip = { pos = [ 1, 2 ] }\n") != std::string::npos &&
+                    organized.find("# Hand.Left.Grip") == std::string::npos,
+            "a malformed transform was not kept as written");
+        require(organized.find("# Debug.Proxy = { scale = 3 }") != std::string::npos,
+            "a transform of the other file was not kept whole as a comment");
+        store.load(true);
+        require(bytes(store.path(Group::Player)) == organized, "a second start changed a kept transform");
+
+        const auto& grip = *store.find("Hand.Left", "Grip");
+        require(Store::isDefault(grip, "{}") && Store::isDefault(grip, "{ scale = 1, rot = [0, 0, 0] }") &&
+                    !Store::isDefault(grip, "{ pos = [0, 0, 1] }") && !Store::isDefault(grip, "[0, 0, 0]"),
+            "a transform's missing parts did not equal no change");
+        require(store.setValue(Group::Player, "Hand.Left", "Grip", "{ pos = [1, 0, 0] }"), "a transform write failed");
+        require(bytes(store.path(Group::Player)).find("Grip = { pos = [1.0, 0.0, 0.0] }\n") != std::string::npos,
+            "a transform write was not canonical");
+        require(store.setValue(Group::Developer, "Debug", "Proxy", "{ scale = 2 }"), "a developer transform write failed");
+        require(store.setValue(Group::Developer, "Debug", "Proxy", "{}"), "a developer transform reset failed");
+        require(!fs::exists(store.path(Group::Developer)), "a transform equal to its default kept the developer file");
     }
 
     // Startup organizes a hand-edited file without changing what it means.
@@ -246,6 +314,7 @@ int main()
         fs::remove_all(root, ec);
         valueChecks();
         organizeChecks(root / "organize");
+        transformChecks(root / "transform");
         faultChecks(root / "faults");
         developerChecks(root / "developer");
         migrationChecks(root / "migration");

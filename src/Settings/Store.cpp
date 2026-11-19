@@ -113,6 +113,72 @@ namespace RPS::Settings
             return narrowed;
         }
 
+        std::optional<std::array<float, 3>> float3FromNode(const toml::node& node)
+        {
+            const auto* array = node.as_array();
+            if (!array || array->size() != 3)
+                return std::nullopt;
+            std::array<float, 3> components{};
+            for (std::size_t index = 0; index < 3; ++index) {
+                const auto component = numberOf(*array->get(index));
+                if (!component)
+                    return std::nullopt;
+                components[index] = *component;
+            }
+            return components;
+        }
+
+        /**
+         * A transform from a TOML table, read as F4VR-CommonFramework's parseTransform reads it: pos and rot are three
+         * numbers, scale is a number, each optional. Any other key makes it no transform, as a misspelled key would
+         * otherwise read as its no-change value.
+         */
+        std::optional<Transform> transformFromNode(const toml::node& node)
+        {
+            const auto* table = node.as_table();
+            if (!table)
+                return std::nullopt;
+            Transform result;
+            for (const auto& [key, value] : *table) {
+                if (key.str() == "pos" || key.str() == "rot") {
+                    const auto components = float3FromNode(value);
+                    if (!components)
+                        return std::nullopt;
+                    (key.str() == "pos" ? result.position : result.rotation) = *components;
+                } else if (key.str() == "scale") {
+                    const auto scale = numberOf(value);
+                    if (!scale)
+                        return std::nullopt;
+                    result.scale = *scale;
+                } else {
+                    return std::nullopt;
+                }
+            }
+            return result;
+        }
+
+        /**
+         * Whether two canonical values of a type mean the same. A transform's missing part equals its no-change value
+         * (no move, no rotation, scale 1), so "{}" and "{ pos = [0.0, 0.0, 0.0] }" are the same; other types compare
+         * their text.
+         */
+        bool sameValue(ValueType type, std::string_view left, std::string_view right)
+        {
+            if (type != ValueType::Transform || left == right)
+                return left == right;
+            const auto filled = [](std::string_view text) -> std::optional<std::string> {
+                auto transform = parseTransform(text);
+                if (!transform)
+                    return std::nullopt;
+                transform->position = transform->position.value_or(std::array<float, 3>{});
+                transform->rotation = transform->rotation.value_or(std::array<float, 3>{});
+                transform->scale = transform->scale.value_or(1.0f);
+                return formatTransform(*transform);
+            };
+            const auto a = filled(left);
+            return a && a == filled(right);
+        }
+
         std::optional<std::string> canonicalFromNode(ValueType type, const toml::node& node)
         {
             switch (type) {
@@ -140,16 +206,12 @@ namespace RPS::Settings
                 }
                 return std::nullopt;
             case ValueType::Float3:
-                if (const auto* array = node.as_array(); array && array->size() == 3) {
-                    std::array<float, 3> components{};
-                    for (std::size_t index = 0; index < 3; ++index) {
-                        const auto component = numberOf(*array->get(index));
-                        if (!component)
-                            return std::nullopt;
-                        components[index] = *component;
-                    }
-                    return formatFloat3(components);
-                }
+                if (const auto components = float3FromNode(node))
+                    return formatFloat3(*components);
+                return std::nullopt;
+            case ValueType::Transform:
+                if (const auto transform = transformFromNode(node))
+                    return formatTransform(*transform);
                 return std::nullopt;
             }
             return std::nullopt;
@@ -168,14 +230,29 @@ namespace RPS::Settings
                 return "one line of text in quotes";
             case ValueType::Float3:
                 return "a list of three numbers such as [0.0, 0.0, 0.0]";
+            case ValueType::Transform:
+                return "a table such as { pos = [0.0, 0.0, 0.0], rot = [0.0, 0.0, 0.0], scale = 1.0 } with any of "
+                       "pos, rot and scale";
             }
             return "a valid value";
         }
 
         // The node as TOML text on one line, for values the mod keeps but cannot use.
+        // A table is written inline, so the text is one value of one key.
         std::string rawText(const toml::node& node)
         {
             std::ostringstream stream;
+            if (const auto* table = node.as_table()) {
+                toml::table wrapper;
+                wrapper.insert("value", *table);
+                wrapper.get("value")->as_table()->is_inline(true);
+                stream << toml::toml_formatter{ wrapper, toml::format_flags::none };
+                auto text = stream.str();
+                const auto equals = text.find('=');
+                text = equals == std::string::npos ? std::string{} : std::string(trim(text.substr(equals + 1)));
+                std::replace(text.begin(), text.end(), '\n', ' ');
+                return text;
+            }
             stream << toml::toml_formatter{ node, toml::format_flags::none };
             auto text = stream.str();
             std::replace(text.begin(), text.end(), '\n', ' ');
@@ -365,13 +442,17 @@ namespace RPS::Settings
             return document;
         }
 
-        template <class Visitor>
-        void forEachLeaf(const toml::table& table, const std::string& prefix, Visitor&& visit)
+        /**
+         * Visits every value of a table by its dotted path. A table is descended into, except one at a path
+         * isValue names (a transform), which is visited whole.
+         */
+        template <class IsValue, class Visitor>
+        void forEachLeaf(const toml::table& table, const std::string& prefix, IsValue&& isValue, Visitor&& visit)
         {
             for (const auto& [key, node] : table) {
                 auto path = prefix.empty() ? std::string(key.str()) : std::format("{}.{}", prefix, key.str());
-                if (const auto* child = node.as_table())
-                    forEachLeaf(*child, path, visit);
+                if (const auto* child = node.as_table(); child && !isValue(path))
+                    forEachLeaf(*child, path, isValue, visit);
                 else
                     visit(path, node);
             }
@@ -395,7 +476,11 @@ namespace RPS::Settings
             };
             std::vector<Entry> entries;
             std::set<std::string, std::less<>> recognized;
+            // A transform is a table that is one value, in either file.
+            std::set<std::string, std::less<>> tableValues;
             for (const auto& setting : settings) {
+                if (setting.type == ValueType::Transform)
+                    tableValues.insert(settingPath(setting.table, setting.key));
                 if (setting.group != group)
                     continue;
                 auto path = settingPath(setting.table, setting.key);
@@ -409,7 +494,7 @@ namespace RPS::Settings
                 } else if (node) {
                     if (const auto canonical = canonicalFromNode(setting.type, *node))
                         value = tomlText(setting.type, *canonical);
-                    else if (!node->is_table())
+                    else if (!node->is_table() || setting.type == ValueType::Transform)
                         value = rawText(*node); // Kept as the player wrote it; load reported it.
                     else
                         value = tomlText(setting.type, setting.value);
@@ -476,7 +561,8 @@ namespace RPS::Settings
                 for (const auto& line : document->comments.unused)
                     addUnused(line);
                 std::vector<std::pair<std::uint32_t, std::string>> leaves;
-                forEachLeaf(document->table, {}, [&](const std::string& path, const toml::node& node) {
+                const auto isValue = [&](const std::string& path) { return tableValues.contains(path); };
+                forEachLeaf(document->table, {}, isValue, [&](const std::string& path, const toml::node& node) {
                     if (recognized.contains(path))
                         return;
                     std::string lines;
@@ -619,7 +705,7 @@ namespace RPS::Settings
                 auto& target = setting.group == Group::Developer ? result.developer : result.player;
                 const auto path = settingPath(setting.table, setting.key);
                 // The developer file holds only options that differ from their defaults.
-                if (setting.group == Group::Developer && value == setting.defaultValue)
+                if (setting.group == Group::Developer && sameValue(setting.type, value, setting.defaultValue))
                     target.erase(path);
                 else
                     target.insert_or_assign(path, std::move(value));
@@ -716,6 +802,42 @@ namespace RPS::Settings
         return result;
     }
 
+    /**
+     * A transform from its TOML inline table text, "{ pos = [x, y, z], rot = [heading, roll, attitude], scale = s }"
+     * with the parts in any order and each optional. Returns nullopt for text that is not one such table on one line.
+     */
+    std::optional<Transform> parseTransform(std::string_view value)
+    {
+        if (value.find_first_of("\r\n") != std::string_view::npos)
+            return std::nullopt;
+        try {
+            const auto document = toml::parse(std::format("value = {}", value));
+            if (const auto* node = document.get("value"); node && document.size() == 1)
+                return transformFromNode(*node);
+        } catch (const toml::parse_error&) {
+        }
+        return std::nullopt;
+    }
+
+    /**
+     * The canonical inline table text of a transform: the parts it has, in pos, rot, scale order, with numbers
+     * written as Float values are ("{ pos = [0.0, 1.5, 0.0] }"), or "{}" with none. The numbers must be finite.
+     */
+    std::string formatTransform(const Transform& value)
+    {
+        std::string parts;
+        const auto add = [&](std::string_view key, const std::string& text) {
+            parts += std::format("{}{} = {}", parts.empty() ? "" : ", ", key, text);
+        };
+        if (value.position)
+            add("pos", formatFloat3(*value.position));
+        if (value.rotation)
+            add("rot", formatFloat3(*value.rotation));
+        if (value.scale)
+            add("scale", formatFloat(*value.scale));
+        return parts.empty() ? std::string("{}") : std::format("{{ {} }}", parts);
+    }
+
     std::optional<std::string> normalizeValue(ValueType type, std::string_view value)
     {
         switch (type) {
@@ -749,6 +871,10 @@ namespace RPS::Settings
         case ValueType::Float3:
             if (const auto vector = parseFloat3(value))
                 return formatFloat3(*vector);
+            return std::nullopt;
+        case ValueType::Transform:
+            if (const auto transform = parseTransform(value))
+                return formatTransform(*transform);
             return std::nullopt;
         }
         return std::nullopt;
@@ -1017,10 +1143,14 @@ namespace RPS::Settings
             ++_revision;
     }
 
+    /**
+     * Whether a value means the option's default. A transform's missing part equals its no-change value, so "{}" is
+     * the default "{ pos = [0.0, 0.0, 0.0] }".
+     */
     bool Store::isDefault(const Setting& setting, std::string_view value)
     {
         const auto normalized = normalizeValue(setting.type, value);
-        return normalized && *normalized == setting.defaultValue;
+        return normalized && sameValue(setting.type, *normalized, setting.defaultValue);
     }
 
     bool Store::setValue(Group group, std::string_view table, std::string_view key, std::string_view value)
@@ -1058,7 +1188,7 @@ namespace RPS::Settings
                 return false;
             }
             auto& override = overrides[settingPath(found->table, found->key)];
-            if (group == Group::Developer && *normalized == found->defaultValue)
+            if (group == Group::Developer && sameValue(found->type, *normalized, found->defaultValue))
                 override.reset();
             else
                 override = std::move(normalized);
