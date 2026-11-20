@@ -37,6 +37,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace RPS::Settings
@@ -59,6 +60,21 @@ namespace RPS::Settings
         std::optional<std::array<float, 3>> position;
         std::optional<std::array<float, 3>> rotation; // [heading, roll, attitude] in degrees.
         std::optional<float> scale;
+    };
+
+    struct TableEntry;
+
+    // One value of a Table option, as parseTable reads it. std::monostate is
+    // a value of another kind (an array, a date or a time).
+    struct TableValue
+    {
+        std::variant<std::monostate, bool, std::int64_t, double, std::string, std::vector<TableEntry>> value;
+    };
+
+    struct TableEntry
+    {
+        std::string key;
+        TableValue value;
     };
 
     enum class Group : std::uint32_t
@@ -124,6 +140,9 @@ namespace RPS::Settings
     [[nodiscard]] std::optional<std::array<float, 3>> parseFloat3(std::string_view value);
     [[nodiscard]] std::optional<Transform> parseTransform(std::string_view value);
     [[nodiscard]] std::string formatTransform(const Transform& value);
+    // The keys of a Table value, sorted by key, or nullopt for text that is
+    // not one inline table on one line.
+    [[nodiscard]] std::optional<std::vector<TableEntry>> parseTable(std::string_view value);
 
     class Store
     {

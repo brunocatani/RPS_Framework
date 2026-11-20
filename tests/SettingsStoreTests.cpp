@@ -122,6 +122,25 @@ namespace
                     !normalizeValue(ValueType::Table, "{ a = }") &&
                     !normalizeValue(ValueType::Table, "{ a = 1 }\nb = 2"),
             "a value that is not one inline table was accepted");
+        const auto entries =
+            parseTable(" { type = \"tap\", duration = 0.5, count = 2, on = true, modifier = { button = \"a\" }, list = [1] } ");
+        const auto find = [&](const std::vector<TableEntry>& in, std::string_view key) -> const TableValue* {
+            for (const auto& entry : in)
+                if (entry.key == key)
+                    return &entry.value;
+            return nullptr;
+        };
+        require(entries && entries->size() == 6, "a table's keys were not read");
+        const auto* modifier = find(*entries, "modifier");
+        const auto* nested = modifier ? std::get_if<std::vector<TableEntry>>(&modifier->value) : nullptr;
+        require(std::get<std::string>(find(*entries, "type")->value) == "tap" &&
+                    std::holds_alternative<double>(find(*entries, "duration")->value) &&
+                    std::get<std::int64_t>(find(*entries, "count")->value) == 2 &&
+                    std::get<bool>(find(*entries, "on")->value) &&
+                    std::holds_alternative<std::monostate>(find(*entries, "list")->value) && nested &&
+                    std::get<std::string>(find(*nested, "button")->value) == "a",
+            "a table's values were not read by kind");
+        require(!parseTable("\"tap\"") && !parseTable("{ a = 1 }\nb = 2"), "a value that is not one table was read");
     }
 
     // A Table option is one inline table kept as the player wrote it: key order,

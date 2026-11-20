@@ -1060,6 +1060,40 @@ namespace RPS::Settings
         return parts.empty() ? std::string("{}") : std::format("{{ {} }}", parts);
     }
 
+    namespace
+    {
+        std::vector<TableEntry> tableEntries(const toml::table& table)
+        {
+            std::vector<TableEntry> entries;
+            for (const auto& [key, node] : table) {
+                TableValue value;
+                if (const auto* text = node.as_string())
+                    value.value = text->get();
+                else if (const auto* integer = node.as_integer())
+                    value.value = integer->get();
+                else if (const auto* floating = node.as_floating_point())
+                    value.value = floating->get();
+                else if (const auto* boolean = node.as_boolean())
+                    value.value = boolean->get();
+                else if (const auto* child = node.as_table())
+                    value.value = tableEntries(*child);
+                entries.push_back({ std::string(key.str()), std::move(value) });
+            }
+            return entries;
+        }
+    }
+
+    /**
+     * The keys of one inline table's text, sorted by key, with nested tables read the same way.
+     */
+    std::optional<std::vector<TableEntry>> parseTable(std::string_view value)
+    {
+        const auto table = parseInlineTable(trim(value));
+        if (!table)
+            return std::nullopt;
+        return tableEntries(*table);
+    }
+
     std::optional<std::string> normalizeValue(ValueType type, std::string_view value)
     {
         switch (type) {
