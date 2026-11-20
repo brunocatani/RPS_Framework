@@ -305,6 +305,26 @@ namespace
         require(!store.setValue(Group::Developer, "Logging", "LogLevel", "2"), "a write to the wrong file was accepted");
         require(store.setValue(Group::Developer, "Debug", "Offset", "[0.5, -1, 0]"), "a developer reset failed");
         require(!fs::exists(store.path(Group::Developer)), "resetting every developer option kept the file");
+
+        // Another editor writes keys at their defaults: a reload drops them, and only them.
+        const std::string handEdited = "[Debug]\nMaxBodies = 7\n# my note\nPattern = \"%x\"\n";
+        write(store.path(Group::Developer), handEdited);
+        store.load(false);
+        require(bytes(store.path(Group::Developer)) == handEdited, "a reload reorganized a developer file");
+        write(store.path(Group::Developer), "[Debug]\nMaxBodies = 195\n# my note\nPattern = \"%x\"\n");
+        store.load(false);
+        const auto tidied = bytes(store.path(Group::Developer));
+        require(tidied.find("MaxBodies") == std::string::npos && tidied.find("# my note\nPattern = \"%x\"\n") != std::string::npos,
+            "a reload did not drop only the key at its default");
+        require(!store.find("Debug", "MaxBodies")->specified && store.find("Debug", "Pattern")->specified,
+            "a dropped key still counts as in the file");
+        const auto revision = store.revision();
+        store.load(false);
+        require(bytes(store.path(Group::Developer)) == tidied && store.revision() == revision,
+            "reading the tidied file changed it or the revision");
+        write(store.path(Group::Developer), "[Debug]\nPattern = \"%v\"\nOffset = [0.5, -1, 0]\n");
+        store.load(false);
+        require(!fs::exists(store.path(Group::Developer)), "a reload kept a developer file with only defaults");
     }
 
     // A player upgrading from INI keeps the settings they changed; old

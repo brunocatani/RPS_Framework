@@ -1413,6 +1413,7 @@ namespace RPS::Settings
                     carried.emplace(entryPath, std::move(value));
             }
             std::vector<Setting*> missing;
+            std::vector<Setting*> atDefault; // Developer options the file holds at their default.
             for (auto& setting : updated) {
                 if (setting.group != group)
                     continue;
@@ -1435,12 +1436,21 @@ namespace RPS::Settings
                 } else {
                     missing.push_back(&setting);
                 }
+                if (group == Group::Developer && specified && sameValue(setting.type, next, setting.defaultValue)) {
+                    atDefault.push_back(&setting);
+                    specified = false; // Dropped from the file below.
+                }
                 changed |= setting.value != next || setting.specified != specified;
                 setting.value = std::move(next);
                 setting.specified = specified;
             }
-            if (!startup || (document.state == FileState::Missing && group == Group::Developer))
+            // The developer file holds only overrides: a reload rewrites it
+            // only to drop a key at its default (one an editor reset), so a
+            // file edited by hand is not reorganized under its editor.
+            if (!(startup || !atDefault.empty()) || (document.state == FileState::Missing && group == Group::Developer))
                 continue;
+            for (const auto* setting : atDefault)
+                carried[settingPath(setting->table, setting->key)].reset();
             // Organizing writes each recognized key once with the value it
             // holds, so the rewrite cannot change what the loader reads. An
             // unwritable file can still be read; report and keep going.

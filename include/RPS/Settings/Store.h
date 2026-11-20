@@ -15,7 +15,9 @@
 // table whose keys the mod reads itself; the store keeps the player's text.
 //
 // The developer file is never created by loading: it holds only options that
-// differ from their defaults and is removed when none remain.
+// differ from their defaults and is removed when none remain. A key another
+// editor wrote at its default is dropped on the next load, a reload included;
+// a reload rewrites the file for nothing else.
 //
 // When the player file does not exist at startup, the mod's old INI files are
 // migrated once (LegacyIni.h) and deleted after the TOML files read back.
