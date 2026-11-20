@@ -17,6 +17,7 @@ namespace RPS::Settings
         Value,           // Same value, new table and key.
         Float3Component, // One of the X/Y/Z or pitch/yaw/roll keys of a list or a Transform's pos (component 0..2).
         BooleanToString, // A boolean that became one of two strings: trueText or falseText.
+        ConversionInput, // A value only a conversion reads (Conversion.h), at a table and key that is no option.
     };
 
     // An old INI key, the option it became, and its default in up to two

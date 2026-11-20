@@ -1,7 +1,7 @@
 // RPS::Settings::Store against real files: organizing keeps what a file means,
 // faults keep the last values, the developer file holds only overrides,
 // transforms and tables stay one inline value, old INI files migrate once and are
-// deleted, and renamed keys carry their values once.
+// deleted, renamed keys carry their values once, and conversions act once.
 #include "RPS/Settings/Store.h"
 
 #include <filesystem>
@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -368,6 +369,91 @@ namespace
             "a value that does not fit was not reported");
     }
 
+    /**
+     * A test conversion: an old "<hand> <type> <button>" string becomes the binding table, and a retired
+     * Bindings.HoldSeconds becomes its duration. A string of another shape gives a value that is no table.
+     */
+    std::optional<std::string> convertReload(const ConversionSource& source)
+    {
+        const auto old = source.value("Bindings", "Reload", ValueType::String);
+        const auto hold = source.value("Bindings", "HoldSeconds", ValueType::Float);
+        if (!old && !hold)
+            return std::nullopt;
+        std::istringstream words(old.value_or("primary tap a"));
+        std::string hand, type, button, extra;
+        if (!(words >> hand >> type >> button) || (words >> extra))
+            return "not a table";
+        return std::format("{{ hand = \"{}\", type = \"{}\", button = \"{}\"{} }}", hand, type, button,
+            hold ? ", duration = " + *hold : std::string{});
+    }
+
+    constexpr ValueConversion kConversions[] = { { "Bindings", "Reload", &convertReload } };
+
+    // A conversion acts once at startup: an old string and a retired key become
+    // the option's new value, the retired key stays only as a comment, a result
+    // that does not fit is reported, and INI values reach it through
+    // ConversionInput rows.
+    void conversionChecks(const fs::path& directory)
+    {
+        fs::create_directories(directory);
+        Store store(files(directory), definitions(), {}, {}, kConversions);
+        write(store.path(Group::Player), "[Bindings]\nReload = \"offhand hold grip\"\nHoldSeconds = 0.5\n");
+        store.load(true);
+        require(store.messages().empty(), "a converted value reported problems");
+        require(store.find("Bindings", "Reload")->value ==
+                    "{ hand = \"offhand\", type = \"hold\", button = \"grip\", duration = 0.5 }",
+            "an old string and a retired key were not converted");
+        require(hasLine(store.notices(), "Converted Bindings.Reload in TestMod.toml"), "a conversion was not named");
+        const auto organized = bytes(store.path(Group::Player));
+        require(organized.find("# Bindings.HoldSeconds = 0.5") != std::string::npos &&
+                    organized.find("Reload = { hand = \"offhand\"") != std::string::npos,
+            "the converted value was not written with the retired key as a comment");
+        const auto revision = store.revision();
+        store.load(true);
+        require(bytes(store.path(Group::Player)) == organized && store.revision() == revision && store.notices().empty(),
+            "a conversion acted twice");
+
+        write(store.path(Group::Player), "[Bindings]\nHoldSeconds = 0.25\n");
+        store.load(true);
+        require(store.find("Bindings", "Reload")->value ==
+                    "{ hand = \"primary\", type = \"tap\", button = \"a\", duration = 0.25 }",
+            "a retired key alone was not converted");
+
+        write(store.path(Group::Player), "[Bindings]\nReload = \"two words\"\n");
+        store.load(true);
+        require(hasLine(store.messages(), "Bindings.Reload was not converted, the new value does not fit") &&
+                    hasLine(store.messages(), "Bindings.Reload must be an inline table"),
+            "a conversion that does not fit was not reported");
+        require(bytes(store.path(Group::Player)).find("Reload = \"two words\"\n") != std::string::npos,
+            "a value that was not converted was not kept as written");
+
+        const auto iniDirectory = directory / "ini";
+        fs::create_directories(iniDirectory);
+        const auto ini = iniDirectory / "TestMod.ini";
+        constexpr LegacyKey inputs[] = {
+            { "fHoldSeconds", "Bindings", "HoldSeconds", LegacyKind::ConversionInput, 0, "0.35", "0.3500" },
+        };
+        write(ini, "[Bindings]\r\nfHoldSeconds = 0.75\r\n");
+        Store migrated(files(iniDirectory), definitions(), { { ini }, inputs }, {}, kConversions);
+        migrated.load(true);
+        require(migrated.find("Bindings", "Reload")->value ==
+                    "{ hand = \"primary\", type = \"tap\", button = \"a\", duration = 0.75 }",
+            "an INI conversion input did not reach the conversion");
+        require(bytes(migrated.path(Group::Player)).find("HoldSeconds") == std::string::npos,
+            "a conversion input was written to the file");
+        require(hasLine(migrated.notices(), "Converted Bindings.Reload in the old INI files"),
+            "an INI conversion was not named");
+
+        const auto defaultDirectory = directory / "ini-default";
+        fs::create_directories(defaultDirectory);
+        const auto defaultIni = defaultDirectory / "TestMod.ini";
+        write(defaultIni, "[Bindings]\r\nfHoldSeconds = 0.350\r\n");
+        Store unchanged(files(defaultDirectory), definitions(), { { defaultIni }, inputs }, {}, kConversions);
+        unchanged.load(true);
+        require(unchanged.find("Bindings", "Reload")->value == "{ hand = \"primary\", type = \"tap\", button = \"a\" }",
+            "a conversion input at its old default was carried");
+    }
+
     // An INI that used one key in two sections: rows naming the section take
     // the entry from that section, whichever comes last in the file.
     void sectionChecks(const fs::path& directory)
@@ -419,6 +505,27 @@ namespace
             }
             require(refused, "a renamed key to a missing option, of the wrong type or still an option was accepted");
         }
+        constexpr ValueConversion badConversions[][1] = {
+            { { "Missing", "Option", &convertReload } },
+            { { "Bindings", "Reload", nullptr } },
+        };
+        for (const auto& conversion : badConversions) {
+            refused = false;
+            try {
+                Store store(files(directory), definitions(), {}, {}, conversion);
+            } catch (const std::invalid_argument&) {
+                refused = true;
+            }
+            require(refused, "a conversion of a missing option or without a function was accepted");
+        }
+        constexpr LegacyKey inputOnOption[] = { { "fFuse", "Weapons", "Fuse", LegacyKind::ConversionInput } };
+        refused = false;
+        try {
+            Store store(files(directory), definitions(), { {}, inputOnOption });
+        } catch (const std::invalid_argument&) {
+            refused = true;
+        }
+        require(refused, "a conversion input naming an option was accepted");
     }
 }
 
@@ -437,6 +544,7 @@ int main()
         migrationChecks(root / "migration");
         sectionChecks(root / "sections");
         renameChecks(root / "renames");
+        conversionChecks(root / "conversions");
         declarationChecks(root / "declaration");
         fs::remove_all(root, ec);
     } catch (const std::exception& error) {

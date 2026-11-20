@@ -738,6 +738,7 @@ namespace RPS::Settings
         {
             Values player;
             Values developer;
+            Values inputs; // ConversionInput values as the INI wrote them, by their table and key.
             std::vector<std::string> retired;
             std::vector<std::string> invalid;
         };
@@ -795,6 +796,15 @@ namespace RPS::Settings
             for (const auto& [row, text] : rowValues) {
                 const auto& legacy = *row;
                 const auto oldKey = legacy.oldKey;
+                if (legacy.kind == LegacyKind::ConversionInput) {
+                    // Numbers compare by their canonical text, so "0.30" is the old default "0.3".
+                    const auto canonical = [](std::string_view value) {
+                        return normalizeValue(ValueType::Float, value).value_or(std::string(trim(value)));
+                    };
+                    if (!isOldDefault(legacy, [&](std::string_view old) { return canonical(old) == canonical(text); }))
+                        result.inputs.insert_or_assign(settingPath(legacy.table, legacy.key), text);
+                    continue;
+                }
                 const auto* setting = findSetting(settings, legacy.table, legacy.key);
                 if (!setting) {
                     result.retired.emplace_back(oldKey);
@@ -822,6 +832,8 @@ namespace RPS::Settings
                         assign(*setting, std::string(*canonical == "true" ? legacy.trueText : legacy.falseText));
                     break;
                 }
+                case LegacyKind::ConversionInput:
+                    break; // Taken above.
                 case LegacyKind::Float3Component: {
                     const auto number = parseFloat(text);
                     if (!number) {
@@ -906,6 +918,83 @@ namespace RPS::Settings
                     continue;
                 result.notices.push_back(std::format("Carried {} into {} in {}", oldPath, newPath, fileName));
                 result.values.emplace(newPath, std::move(*value));
+            }
+            return result;
+        }
+
+        // ---- Value conversions ----
+
+        /**
+         * A conversion's view of one parsed TOML file.
+         */
+        class FileSource final : public ConversionSource
+        {
+        public:
+            FileSource(const toml::table& table, std::string_view text) : _table(table), _text(text) {}
+
+            std::optional<std::string> value(std::string_view table, std::string_view key, ValueType type) const override
+            {
+                const auto node = _table.at_path(settingPath(table, key));
+                return node ? canonicalFromNode(type, *node.node(), _text) : std::nullopt;
+            }
+
+        private:
+            const toml::table& _table;
+            std::string_view _text;
+        };
+
+        /**
+         * A conversion's view of the values migrated from old INI files: the options' translated values, then the
+         * ConversionInput values, each read again as the type asked for.
+         */
+        class IniSource final : public ConversionSource
+        {
+        public:
+            explicit IniSource(const Translation& translation) : _translation(translation) {}
+
+            std::optional<std::string> value(std::string_view table, std::string_view key, ValueType type) const override
+            {
+                const auto path = settingPath(table, key);
+                for (const auto* values : { &_translation.player, &_translation.developer, &_translation.inputs }) {
+                    if (const auto found = values->find(path); found != values->end())
+                        return normalizeValue(type, found->second);
+                }
+                return std::nullopt;
+            }
+
+        private:
+            const Translation& _translation;
+        };
+
+        /**
+         * The values the conversions of one group's options give on a source. A result equal to the value the source
+         * already holds is no change, a developer value equal to its default is left out (the developer file holds
+         * only overrides), and a result the option's type cannot hold is reported and dropped.
+         */
+        Carried convertValues(std::span<const ValueConversion> conversions, std::span<const Setting> settings,
+            const ConversionSource& source, Group group, std::string_view sourceName)
+        {
+            Carried result;
+            for (const auto& conversion : conversions) {
+                const auto* setting = findSetting(settings, conversion.table, conversion.key);
+                if (!setting || setting->group != group)
+                    continue;
+                const auto path = settingPath(conversion.table, conversion.key);
+                const auto converted = conversion.convert(source);
+                if (!converted)
+                    continue;
+                auto value = normalizeValue(setting->type, *converted);
+                if (!value) {
+                    result.problems.push_back(std::format(
+                        "{}: {} was not converted, the new value does not fit: {}", sourceName, path, *converted));
+                    continue;
+                }
+                if (value == source.value(conversion.table, conversion.key, setting->type))
+                    continue;
+                if (group == Group::Developer && sameValue(setting->type, *value, setting->defaultValue))
+                    continue;
+                result.notices.push_back(std::format("Converted {} in {}", path, sourceName));
+                result.values.insert_or_assign(path, std::move(*value));
             }
             return result;
         }
@@ -1025,8 +1114,9 @@ namespace RPS::Settings
         return std::nullopt;
     }
 
-    Store::Store(Files files, std::vector<Definition> definitions, LegacyIni legacy, std::span<const RenamedKey> renamed) :
-        _files(std::move(files)), _legacy(std::move(legacy)), _renamed(renamed)
+    Store::Store(Files files, std::vector<Definition> definitions, LegacyIni legacy, std::span<const RenamedKey> renamed,
+        std::span<const ValueConversion> conversions) :
+        _files(std::move(files)), _legacy(std::move(legacy)), _renamed(renamed), _conversions(conversions)
     {
         if (_files.directory.empty() || _files.playerFileName.empty())
             throw std::invalid_argument("Settings files need a directory and a player file name");
@@ -1053,6 +1143,12 @@ namespace RPS::Settings
         }
         for (const auto& row : _legacy.keys) {
             const auto* setting = find(row.table, row.key);
+            if (row.kind == LegacyKind::ConversionInput) {
+                if (setting)
+                    throw std::invalid_argument(std::format(
+                        "INI key {} is a conversion input but {}.{} is an option", row.oldKey, row.table, row.key));
+                continue;
+            }
             if (!setting)
                 throw std::invalid_argument(
                     std::format("INI key {} maps to unknown option {}.{}", row.oldKey, row.table, row.key));
@@ -1075,6 +1171,13 @@ namespace RPS::Settings
                     std::format("Renamed key {} does not fit the type of {}.{}", oldPath, row.table, row.key));
             if (find(row.oldTable, row.oldKey))
                 throw std::invalid_argument(std::format("Renamed key {} is still an option", oldPath));
+        }
+        for (const auto& conversion : _conversions) {
+            const auto path = settingPath(conversion.table, conversion.key);
+            if (!find(conversion.table, conversion.key))
+                throw std::invalid_argument(std::format("Conversion of {} names no option", path));
+            if (!conversion.convert)
+                throw std::invalid_argument(std::format("Conversion of {} has no function", path));
         }
     }
 
@@ -1165,7 +1268,16 @@ namespace RPS::Settings
                 }
                 texts.push_back(std::move(text));
             }
-            const auto translation = translate(texts, _legacy.keys, _settings);
+            auto translation = translate(texts, _legacy.keys, _settings);
+            // Conversions run on the migrated values before they are written.
+            for (const auto group : { Group::Player, Group::Developer }) {
+                auto converted = convertValues(_conversions, _settings, IniSource(translation), group, "the old INI files");
+                _notices.insert(_notices.end(), converted.notices.begin(), converted.notices.end());
+                _messages.insert(_messages.end(), converted.problems.begin(), converted.problems.end());
+                auto& target = group == Group::Developer ? translation.developer : translation.player;
+                for (auto& [entryPath, value] : converted.values)
+                    target.insert_or_assign(entryPath, std::move(*value));
+            }
             const auto overridesOf = [](const Values& values) {
                 Overrides overrides;
                 for (const auto& [entryPath, value] : values)
@@ -1258,6 +1370,13 @@ namespace RPS::Settings
                 _notices.insert(_notices.end(), renamed.notices.begin(), renamed.notices.end());
                 _messages.insert(_messages.end(), renamed.problems.begin(), renamed.problems.end());
                 carried = std::move(renamed.values);
+                // A conversion reads the file as written; a renamed key carried to the same option wins.
+                auto converted = convertValues(
+                    _conversions, updated, FileSource(document.table, document.text), group, file.filename().string());
+                _notices.insert(_notices.end(), converted.notices.begin(), converted.notices.end());
+                _messages.insert(_messages.end(), converted.problems.begin(), converted.problems.end());
+                for (auto& [entryPath, value] : converted.values)
+                    carried.emplace(entryPath, std::move(value));
             }
             std::vector<Setting*> missing;
             for (auto& setting : updated) {

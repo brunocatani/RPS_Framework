@@ -20,11 +20,12 @@
 // When the player file does not exist at startup, the mod's old INI files are
 // migrated once (LegacyIni.h) and deleted after the TOML files read back.
 // Keys a later version renamed are carried to their new option at startup
-// (RenamedKey.h).
+// (RenamedKey.h), and values in an older form are converted (Conversion.h).
 //
 // Not thread-safe: the owning mod serializes load and writes.
 #pragma once
 
+#include "RPS/Settings/Conversion.h"
 #include "RPS/Settings/LegacyIni.h"
 #include "RPS/Settings/RenamedKey.h"
 
@@ -131,12 +132,13 @@ namespace RPS::Settings
         // default that is not canonical, names a developer option without a
         // developer file, a legacy key names a missing option or the wrong type,
         // or a renamed key names a missing option, the wrong type, or an
-        // old key that is itself an option.
+        // old key that is itself an option, or a conversion names a missing
+        // option or has no function, or a ConversionInput row names an option.
         Store(Files files, std::vector<Definition> definitions, LegacyIni legacy = {},
-            std::span<const RenamedKey> renamed = {});
+            std::span<const RenamedKey> renamed = {}, std::span<const ValueConversion> conversions = {});
 
-        // startup: organize the files (migrate old INIs and carry renamed
-        // keys). Otherwise only read.
+        // startup: organize the files (migrate old INIs, carry renamed keys
+        // and run conversions). Otherwise only read.
         void load(bool startup);
         // Writes the file only: the loaded values, settings() and revision()
         // change at the next load(), so the owner applies a write the same way
@@ -153,7 +155,7 @@ namespace RPS::Settings
         // Problems found by the last load, each naming its file and line.
         [[nodiscard]] const std::vector<std::string>& messages() const noexcept { return _messages; }
         // What the last startup load did besides reading (INI migration and
-        // deletion, renamed keys carried over).
+        // deletion, renamed keys carried over, values converted).
         [[nodiscard]] const std::vector<std::string>& notices() const noexcept { return _notices; }
 
         [[nodiscard]] const std::filesystem::path& directory() const noexcept { return _files.directory; }
@@ -173,6 +175,7 @@ namespace RPS::Settings
         Files _files;
         LegacyIni _legacy;
         std::span<const RenamedKey> _renamed;
+        std::span<const ValueConversion> _conversions;
         std::vector<Setting> _settings;
         std::string _error;
         std::vector<std::string> _messages;
