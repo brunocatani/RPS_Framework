@@ -185,6 +185,8 @@ namespace RPS::Settings
         // Advances whenever a load changes a value or whether it is specified.
         [[nodiscard]] std::uint64_t revision() const noexcept { return _revision; }
 
+        [[nodiscard]] std::string organizedDefaults(Group group) const;
+
         [[nodiscard]] static bool isDefault(const Setting& setting, std::string_view value);
 
     private:

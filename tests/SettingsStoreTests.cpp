@@ -325,6 +325,15 @@ namespace
         write(store.path(Group::Developer), "[Debug]\nPattern = \"%v\"\nOffset = [0.5, -1, 0]\n");
         store.load(false);
         require(!fs::exists(store.path(Group::Developer)), "a reload kept a developer file with only defaults");
+
+        // The reference text holds every option at its default, organized as a load would.
+        const auto example = store.organizedDefaults(Group::Developer);
+        require(example.starts_with("## TestMod_Developer.toml\n") &&
+                    example.find("[Debug]\n## Log pattern\nPattern = \"%v\"\n") != std::string::npos &&
+                    example.find("MaxBodies = 195\n") != std::string::npos &&
+                    example.find("Offset = [0.5, -1.0, 0.0]\n") != std::string::npos &&
+                    example.find("LogLevel") == std::string::npos,
+            "the organized defaults are not every developer option at its default");
     }
 
     // A player upgrading from INI keeps the settings they changed; old

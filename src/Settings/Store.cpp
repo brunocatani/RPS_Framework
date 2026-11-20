@@ -1477,6 +1477,21 @@ namespace RPS::Settings
     }
 
     /**
+     * A file's text as the store organizes it with every option of the group at its default, header included,
+     * for a mod's reference examples. A load never writes this developer file: it holds only overrides.
+     */
+    std::string Store::organizedDefaults(Group group) const
+    {
+        Overrides overrides;
+        for (const auto& setting : _settings) {
+            if (setting.group == group)
+                overrides.emplace(settingPath(setting.table, setting.key), setting.defaultValue);
+        }
+        bool hasEntries = false;
+        return organize(_files, group, _settings, nullptr, overrides, hasEntries);
+    }
+
+    /**
      * Whether a value means the option's default. A transform's missing part equals its no-change value, so "{}" is
      * the default "{ pos = [0.0, 0.0, 0.0] }".
      */
