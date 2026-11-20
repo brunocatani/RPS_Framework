@@ -157,13 +157,77 @@ namespace RPS::Settings
             return result;
         }
 
+        std::string rawText(const toml::node& node);
+
+        /**
+         * The byte offset in text of a toml++ source position, whose line is 1-based and whose column counts code
+         * points from 1, or npos when text has no such position. A region's end is exclusive and may be text's end.
+         */
+        std::size_t byteOffset(std::string_view text, const toml::source_position& position)
+        {
+            std::size_t offset = text.starts_with("\xEF\xBB\xBF") ? 3 : 0;
+            for (toml::source_index line = 1; line < position.line; ++line) {
+                offset = text.find('\n', offset);
+                if (offset == std::string_view::npos)
+                    return std::string_view::npos;
+                ++offset;
+            }
+            for (toml::source_index column = 1; column < position.column; ++column) {
+                if (offset >= text.size() || text[offset] == '\n')
+                    return std::string_view::npos;
+                ++offset;
+                while (offset < text.size() && (static_cast<unsigned char>(text[offset]) & 0xC0) == 0x80)
+                    ++offset;
+            }
+            return offset;
+        }
+
+        /**
+         * The table of one inline table's text on one line, or nullopt when the text is anything else.
+         */
+        std::optional<toml::table> parseInlineTable(std::string_view value)
+        {
+            if (value.find_first_of("\r\n") != std::string_view::npos)
+                return std::nullopt;
+            try {
+                auto document = toml::parse(std::format("value = {}", value));
+                if (const auto* table = document.get_as<toml::table>("value"); table && document.size() == 1)
+                    return *table;
+            } catch (const toml::parse_error&) {
+            }
+            return std::nullopt;
+        }
+
+        /**
+         * A Table value's text: an inline table exactly as written in source (key order and spacing kept, comments
+         * outside it dropped), else toml++'s inline form of it, whose keys come sorted. The source slice is used only
+         * when it lies on one line and reads back as the same table.
+         */
+        std::string tableText(const toml::table& table, std::string_view source)
+        {
+            if (table.is_inline() && !source.empty()) {
+                const auto begin = byteOffset(source, table.source().begin);
+                const auto end = byteOffset(source, table.source().end);
+                if (begin != std::string_view::npos && end != std::string_view::npos && begin < end) {
+                    const auto text = trim(source.substr(begin, end - begin));
+                    if (const auto parsed = parseInlineTable(text); parsed && *parsed == table)
+                        return std::string(text);
+                }
+            }
+            return rawText(table);
+        }
+
         /**
          * Whether two canonical values of a type mean the same. A transform's missing part equals its no-change value
-         * (no move, no rotation, scale 1), so "{}" and "{ pos = [0.0, 0.0, 0.0] }" are the same; other types compare
-         * their text.
+         * (no move, no rotation, scale 1), so "{}" and "{ pos = [0.0, 0.0, 0.0] }" are the same; tables are the same
+         * when they hold the same keys and values in any order or spacing; other types compare their text.
          */
         bool sameValue(ValueType type, std::string_view left, std::string_view right)
         {
+            if (type == ValueType::Table && left != right) {
+                const auto a = parseInlineTable(left);
+                return a && a == parseInlineTable(right);
+            }
             if (type != ValueType::Transform || left == right)
                 return left == right;
             const auto filled = [](std::string_view text) -> std::optional<std::string> {
@@ -179,7 +243,11 @@ namespace RPS::Settings
             return a && a == filled(right);
         }
 
-        std::optional<std::string> canonicalFromNode(ValueType type, const toml::node& node)
+        /**
+         * The canonical text of a node for a type, or nullopt when the node cannot hold it. source is the text the
+         * node was parsed from, which a Table value is copied from as written.
+         */
+        std::optional<std::string> canonicalFromNode(ValueType type, const toml::node& node, std::string_view source = {})
         {
             switch (type) {
             case ValueType::Boolean:
@@ -213,6 +281,10 @@ namespace RPS::Settings
                 if (const auto transform = transformFromNode(node))
                     return formatTransform(*transform);
                 return std::nullopt;
+            case ValueType::Table:
+                if (const auto* table = node.as_table())
+                    return tableText(*table, source);
+                return std::nullopt;
             }
             return std::nullopt;
         }
@@ -233,6 +305,8 @@ namespace RPS::Settings
             case ValueType::Transform:
                 return "a table such as { pos = [0.0, 0.0, 0.0], rot = [0.0, 0.0, 0.0], scale = 1.0 } with any of "
                        "pos, rot and scale";
+            case ValueType::Table:
+                return "an inline table such as { key = \"value\" }";
             }
             return "a valid value";
         }
@@ -476,10 +550,10 @@ namespace RPS::Settings
             };
             std::vector<Entry> entries;
             std::set<std::string, std::less<>> recognized;
-            // A transform is a table that is one value, in either file.
+            // A transform or a Table is a table that is one value, in either file.
             std::set<std::string, std::less<>> tableValues;
             for (const auto& setting : settings) {
-                if (setting.type == ValueType::Transform)
+                if (setting.type == ValueType::Transform || setting.type == ValueType::Table)
                     tableValues.insert(settingPath(setting.table, setting.key));
                 if (setting.group != group)
                     continue;
@@ -492,7 +566,7 @@ namespace RPS::Settings
                         continue;
                     value = tomlText(setting.type, *found->second);
                 } else if (node) {
-                    if (const auto canonical = canonicalFromNode(setting.type, *node))
+                    if (const auto canonical = canonicalFromNode(setting.type, *node, document->text))
                         value = tomlText(setting.type, *canonical);
                     else if (!node->is_table() || setting.type == ValueType::Transform)
                         value = rawText(*node); // Kept as the player wrote it; load reported it.
@@ -801,7 +875,7 @@ namespace RPS::Settings
          * only overrides; the old key is left for organize to keep as a comment either way.
          */
         Carried carryRenamedKeys(std::span<const RenamedKey> renamed, std::span<const Setting> settings,
-            const toml::table& table, Group group, std::string_view fileName)
+            const toml::table& table, std::string_view source, Group group, std::string_view fileName)
         {
             Carried result;
             for (const auto& row : renamed) {
@@ -816,7 +890,7 @@ namespace RPS::Settings
                 std::optional<std::string> value;
                 switch (row.kind) {
                 case RenameKind::Value:
-                    value = canonicalFromNode(setting->type, *old.node());
+                    value = canonicalFromNode(setting->type, *old.node(), source);
                     break;
                 case RenameKind::Float3ToTransformPosition:
                     if (const auto position = float3FromNode(*old.node()))
@@ -935,6 +1009,18 @@ namespace RPS::Settings
             if (const auto transform = parseTransform(value))
                 return formatTransform(*transform);
             return std::nullopt;
+        case ValueType::Table: {
+            if (value.find_first_of("\r\n") != std::string_view::npos)
+                return std::nullopt;
+            const auto source = std::format("value = {}", value);
+            try {
+                const auto document = toml::parse(source);
+                if (const auto* table = document.get_as<toml::table>("value"); table && document.size() == 1)
+                    return tableText(*table, source);
+            } catch (const toml::parse_error&) {
+            }
+            return std::nullopt;
+        }
         }
         return std::nullopt;
     }
@@ -1167,7 +1253,8 @@ namespace RPS::Settings
             }
             Overrides carried;
             if (startup && document.state == FileState::Parsed) {
-                auto renamed = carryRenamedKeys(_renamed, updated, document.table, group, file.filename().string());
+                auto renamed =
+                    carryRenamedKeys(_renamed, updated, document.table, document.text, group, file.filename().string());
                 _notices.insert(_notices.end(), renamed.notices.begin(), renamed.notices.end());
                 _messages.insert(_messages.end(), renamed.problems.begin(), renamed.problems.end());
                 carried = std::move(renamed.values);
@@ -1183,7 +1270,7 @@ namespace RPS::Settings
                     next = *found->second;
                     specified = true;
                 } else if (const auto node = document.table.at_path(path)) {
-                    const auto canonical = canonicalFromNode(setting.type, *node.node());
+                    const auto canonical = canonicalFromNode(setting.type, *node.node(), document.text);
                     if (!canonical) {
                         _messages.push_back(std::format("{} line {}: {}.{} must be {}; keeping {}",
                             file.filename().string(), node.node()->source().begin.line, setting.table, setting.key,

@@ -11,7 +11,8 @@
 // comment lines in a trailing block and never apply. A recognized value of
 // the wrong type is kept as written, reported with its line, and the option
 // keeps its last value. A file that does not parse is never rewritten and its
-// options keep the last values read from it.
+// options keep the last values read from it. A Table option is one inline
+// table whose keys the mod reads itself; the store keeps the player's text.
 //
 // The developer file is never created by loading: it holds only options that
 // differ from their defaults and is removed when none remain.
@@ -47,6 +48,7 @@ namespace RPS::Settings
         String,
         Float3,    // Three numbers, written "[x, y, z]".
         Transform, // An inline table "{ pos = [x, y, z], rot = [heading, roll, attitude], scale = s }", parts optional.
+        Table,     // Any inline table, kept as written; the mod reads its keys.
     };
 
     // A Transform value as F4VR-CommonFramework reads it: each part is
@@ -111,10 +113,12 @@ namespace RPS::Settings
     [[nodiscard]] std::string settingPath(std::string_view table, std::string_view key);
 
     // Canonical text of a value: true/false, a decimal integer, a float that
-    // always carries a '.' or exponent, raw text, "[x, y, z]", or a transform
-    // table with its parts in pos, rot, scale order. Accepts the looser forms
-    // an API caller may send (1/0, yes/no, on/off, "x, y, z", any key order).
-    // Returns nullopt for a value the type cannot hold.
+    // always carries a '.' or exponent, raw text, "[x, y, z]", a transform
+    // table with its parts in pos, rot, scale order, or an inline table as
+    // written (its key order and spacing kept, a trailing comment dropped).
+    // Accepts the looser forms an API caller may send (1/0, yes/no, on/off,
+    // "x, y, z", any key order). Returns nullopt for a value the type cannot
+    // hold.
     [[nodiscard]] std::optional<std::string> normalizeValue(ValueType type, std::string_view value);
     [[nodiscard]] std::optional<std::array<float, 3>> parseFloat3(std::string_view value);
     [[nodiscard]] std::optional<Transform> parseTransform(std::string_view value);

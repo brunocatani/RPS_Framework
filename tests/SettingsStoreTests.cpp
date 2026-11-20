@@ -1,6 +1,6 @@
 // RPS::Settings::Store against real files: organizing keeps what a file means,
 // faults keep the last values, the developer file holds only overrides,
-// transforms stay one inline value, old INI files migrate once and are
+// transforms and tables stay one inline value, old INI files migrate once and are
 // deleted, and renamed keys carry their values once.
 #include "RPS/Settings/Store.h"
 
@@ -56,6 +56,8 @@ namespace
             { "Hand", "DefaultHand", "03. Hands", "right or left", Group::Player, ValueType::String, "right" },
             { "Hand.Left", "Grip", "03. Hands", "Grip transform", Group::Player, ValueType::Transform,
                 "{ pos = [0.0, 0.0, 0.0] }" },
+            { "Bindings", "Reload", "05. Bindings", "Reload binding", Group::Player, ValueType::Table,
+                "{ hand = \"primary\", type = \"tap\", button = \"a\" }" },
             { "Debug", "Pattern", "04. Debug", "Log pattern", Group::Developer, ValueType::String, "%v" },
             { "Debug", "Proxy", "04. Debug", "Proxy transform", Group::Developer, ValueType::Transform, "{ scale = 1.0 }" },
             { "Debug", "Offset", "04. Debug", "Proxy offset", Group::Developer, ValueType::Float3, "[0.5, -1.0, 0.0]" },
@@ -112,6 +114,59 @@ namespace
         require(transform && !transform->position && !transform->scale && transform->rotation &&
                     formatTransform(*transform) == "{ rot = [0.0, 90.0, -5.5] }",
             "transform parts did not round-trip");
+        require(normalizeValue(ValueType::Table, " { type = \"tap\", hand = \"left\" } # note") ==
+                    "{ type = \"tap\", hand = \"left\" }",
+            "a table was not kept as written without its comment");
+        require(!normalizeValue(ValueType::Table, "[1, 2, 3]") && !normalizeValue(ValueType::Table, "\"left tap a\"") &&
+                    !normalizeValue(ValueType::Table, "{ a = }") &&
+                    !normalizeValue(ValueType::Table, "{ a = 1 }\nb = 2"),
+            "a value that is not one inline table was accepted");
+    }
+
+    // A Table option is one inline table kept as the player wrote it: key order,
+    // spacing and nested tables survive organizing; a section becomes inline; a
+    // value of another type is kept and reported; defaults compare by content.
+    void tableChecks(const fs::path& directory)
+    {
+        fs::create_directories(directory);
+        Store store(files(directory), definitions());
+        const std::string binding =
+            "{ type = \"hold\", note = \"caf\xC3\xA9\", modifier = { button = \"a\" }, duration = 0.5 }";
+        write(store.path(Group::Player), std::format("# caf\xC3\xA9 note\n[Bindings]\nReload = {} # mine\n", binding));
+        store.load(true);
+        require(store.messages().empty(), "a valid table reported problems");
+        require(store.find("Bindings", "Reload")->value == binding, "a table was not read as written");
+        auto organized = bytes(store.path(Group::Player));
+        require(organized.find(std::format("Reload = {}\n", binding)) != std::string::npos,
+            "a table was not written back as written");
+        require(organized.find("Not read by this version") == std::string::npos, "a table's keys became unread");
+        store.load(true);
+        require(bytes(store.path(Group::Player)) == organized, "a second start changed a table");
+
+        write(store.path(Group::Player), "[Bindings.Reload]\nhand = \"left\"\n");
+        store.load(true);
+        require(store.find("Bindings", "Reload")->value == "{ hand = \"left\" }", "a table section did not apply");
+        organized = bytes(store.path(Group::Player));
+        require(organized.find("Reload = { hand = \"left\" }\n") != std::string::npos &&
+                    organized.find("[Bindings.Reload]") == std::string::npos,
+            "a table section was not rewritten inline");
+
+        write(store.path(Group::Player), "[Bindings]\nReload = \"firing tap a\"\n");
+        store.load(true);
+        require(store.find("Bindings", "Reload")->value == "{ hand = \"left\" }", "a string replaced the last table");
+        require(hasLine(store.messages(), "Bindings.Reload must be an inline table"), "a string table was not reported");
+        require(bytes(store.path(Group::Player)).find("Reload = \"firing tap a\"\n") != std::string::npos,
+            "a string table was not kept as written");
+
+        const auto& reload = *store.find("Bindings", "Reload");
+        require(Store::isDefault(reload, "{button='a',hand='primary',type='tap'}") &&
+                    !Store::isDefault(reload, "{ hand = \"primary\", type = \"tap\", button = \"b\" }"),
+            "a table default did not compare by content");
+        require(store.setValue(Group::Player, "Bindings", "Reload", "{ hand = \"any\", type = \"none\" }"),
+            "a table write failed");
+        require(bytes(store.path(Group::Player)).find("Reload = { hand = \"any\", type = \"none\" }\n") != std::string::npos,
+            "a table write was not kept as sent");
+        require(!store.setValue(Group::Player, "Bindings", "Reload", "any none"), "a table write of a non-table was accepted");
     }
 
     // A transform is one value whether written inline or as a table section,
@@ -376,6 +431,7 @@ int main()
         valueChecks();
         organizeChecks(root / "organize");
         transformChecks(root / "transform");
+        tableChecks(root / "table");
         faultChecks(root / "faults");
         developerChecks(root / "developer");
         migrationChecks(root / "migration");
