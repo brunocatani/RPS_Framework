@@ -170,6 +170,9 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
   add_executable(RPSHookChainTests tests/HookChainTests.cpp)
   target_link_libraries(RPSHookChainTests PRIVATE RPS::Runtime)
 
+  add_executable(RPSSavedFormTests tests/SavedFormTests.cpp)
+  target_link_libraries(RPSSavedFormTests PRIVATE RPS::Runtime)
+
   add_executable(RPSWorldQueryTests tests/WorldQueryTests.cpp)
   target_link_libraries(RPSWorldQueryTests PRIVATE RPS::Runtime)
 
@@ -211,6 +214,7 @@ if(RPS_FRAMEWORK_BUILD_TESTS)
       RPSAnimationControlTests
       RPSHookPatchTests
       RPSHookChainTests
+      RPSSavedFormTests
       RPSWorldQueryTests
       RPSRagdollTests
       RPSRootPoseTests
